@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Capstone API Test</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#f7f7fb; color:#111; }
+    header { padding: 20px 16px; background: #111; color: #fff; }
+    header h1 { margin: 0; font-size: 18px; }
+    main { max-width: 920px; margin: 0 auto; padding: 16px; display: grid; gap: 12px; }
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .card { background: #fff; border: 1px solid #e7e7ef; border-radius: 12px; padding: 14px; box-shadow: 0 1px 0 rgba(0,0,0,0.03); }
+    .card h2 { margin: 0 0 10px; font-size: 14px; }
+    label { display: block; font-size: 12px; color: #333; margin: 10px 0 6px; }
+    input { width: 100%; box-sizing: border-box; padding: 10px 10px; border-radius: 10px; border: 1px solid #d8d8e3; outline: none; }
+    input:focus { border-color: #111; }
+    button { margin-top: 12px; padding: 10px 12px; border: 0; border-radius: 10px; background: #111; color: #fff; cursor: pointer; }
+    button.secondary { background: #444; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .row { display:flex; gap:10px; flex-wrap: wrap; align-items: center; }
+    code { background:#f1f1f7; padding: 2px 6px; border-radius: 6px; }
+    pre { margin: 10px 0 0; padding: 10px; background:#0b1020; color:#dbe7ff; border-radius: 10px; overflow:auto; font-size: 12px; }
+    .hint { font-size: 12px; color: #555; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Capstone API Web Test</h1>
+  </header>
+  <main>
+    <div class="card">
+      <div class="hint">
+        이 페이지는 같은 서버(origin)에서 API를 호출합니다. 토큰은 브라우저 <code>localStorage</code>에 저장합니다.
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="secondary" id="btnTokenShow">토큰 보기</button>
+        <button class="secondary" id="btnTokenClear">토큰 삭제</button>
+        <span class="hint">Swagger UI: <a href="/swagger-ui/index.html">/swagger-ui/index.html</a></span>
+      </div>
+      <pre id="outMeta"></pre>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>회원가입</h2>
+        <label for="su_email">Email</label>
+        <input id="su_email" placeholder="예: test@example.com" autocomplete="username" />
+        <label for="su_pw">비밀번호</label>
+        <input id="su_pw" type="password" placeholder="예: pw1234" autocomplete="new-password" />
+        <label for="su_name">이름</label>
+        <input id="su_name" placeholder="예: 테스트" autocomplete="name" />
+        <button id="btnSignup">/api/users/signup</button>
+        <pre id="outSignup"></pre>
+      </div>
+
+      <div class="card">
+        <h2>로그인</h2>
+        <label for="li_email">Email</label>
+        <input id="li_email" placeholder="예: test@example.com" autocomplete="username" />
+        <label for="li_pw">비밀번호</label>
+        <input id="li_pw" type="password" placeholder="예: pw1234" autocomplete="current-password" />
+        <button id="btnLogin">/api/users/login</button>
+        <pre id="outLogin"></pre>
+      </div>
+
+      <div class="card">
+        <h2>내 정보</h2>
+        <div class="hint">헤더 <code>Authorization: Bearer &lt;token&gt;</code> 필요</div>
+        <button id="btnMe">/api/users/me</button>
+        <pre id="outMe"></pre>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const outMeta = document.getElementById('outMeta');
+    const outSignup = document.getElementById('outSignup');
+    const outLogin = document.getElementById('outLogin');
+    const outMe = document.getElementById('outMe');
+
+    function getToken() {
+      return localStorage.getItem('accessToken');
+    }
+
+    function setToken(token) {
+      localStorage.setItem('accessToken', token);
+    }
+
+    function pretty(v) {
+      try { return JSON.stringify(v, null, 2); } catch { return String(v); }
+    }
+
+    async function api(path, init) {
+      const headers = new Headers(init?.headers || {});
+      headers.set('accept', 'application/json');
+      const token = getToken();
+      if (token) headers.set('authorization', `Bearer ${token}`);
+
+      let body = init?.body;
+      if (init?.json) {
+        headers.set('content-type', 'application/json');
+        body = JSON.stringify(init.json);
+      }
+
+      const res = await fetch(path, { ...init, headers, body });
+      const ct = res.headers.get('content-type') || '';
+      const data = ct.includes('application/json') ? await res.json().catch(() => null) : await res.text().catch(() => null);
+      if (!res.ok) throw { status: res.status, data };
+      return data;
+    }
+
+    function writeMeta() {
+      outMeta.textContent = pretty({ token: getToken() });
+    }
+    writeMeta();
+
+    document.getElementById('btnTokenShow').addEventListener('click', () => writeMeta());
+    document.getElementById('btnTokenClear').addEventListener('click', () => {
+      localStorage.removeItem('accessToken');
+      writeMeta();
+    });
+
+    document.getElementById('btnSignup').addEventListener('click', async () => {
+      outSignup.textContent = '...';
+      try {
+        const email = document.getElementById('su_email').value;
+        const password = document.getElementById('su_pw').value;
+        const name = document.getElementById('su_name').value;
+        const data = await api('/api/users/signup', { method: 'POST', json: { email, password, name } });
+        if (data && data.accessToken) setToken(data.accessToken);
+        writeMeta();
+        outSignup.textContent = pretty(data);
+      } catch (e) {
+        outSignup.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnLogin').addEventListener('click', async () => {
+      outLogin.textContent = '...';
+      try {
+        const email = document.getElementById('li_email').value;
+        const password = document.getElementById('li_pw').value;
+        const data = await api('/api/users/login', { method: 'POST', json: { email, password } });
+        if (data && data.accessToken) setToken(data.accessToken);
+        writeMeta();
+        outLogin.textContent = pretty(data);
+      } catch (e) {
+        outLogin.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnMe').addEventListener('click', async () => {
+      outMe.textContent = '...';
+      try {
+        const data = await api('/api/users/me', { method: 'GET' });
+        outMe.textContent = pretty(data);
+      } catch (e) {
+        outMe.textContent = pretty(e);
+      }
+    });
+  </script>
+</body>
+</html>

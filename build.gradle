@@ -1,0 +1,71 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.3'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.capstone'
+version = '0.0.1-SNAPSHOT'
+description = 'AI-based pronunciation learning platform'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
+	compileOnly 'org.projectlombok:lombok'
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testRuntimeOnly 'com.h2database:h2'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+def frontendDir = file("${projectDir}/../mynameIsGyeongTae-FE-main")
+def frontendDistDir = file("${frontendDir}/dist")
+
+tasks.register('frontendBuild', Exec) {
+	workingDir(frontendDir)
+	commandLine('npm', 'run', 'build')
+}
+
+tasks.register('copyFrontend', Copy) {
+	dependsOn(tasks.named('frontendBuild'))
+	from(frontendDistDir)
+	into(layout.buildDirectory.dir('resources/main/static'))
+}
+
+tasks.named('bootRun') {
+	dependsOn(tasks.named('copyFrontend'))
+}
+
+tasks.named('bootJar') {
+	dependsOn(tasks.named('copyFrontend'))
+}
+
+tasks.named('resolveMainClassName') {
+	dependsOn(tasks.named('copyFrontend'))
+}
