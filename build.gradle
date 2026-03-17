@@ -47,25 +47,33 @@ tasks.named('test') {
 def frontendDir = file("${projectDir}/../mynameIsGyeongTae-FE-main")
 def frontendDistDir = file("${frontendDir}/dist")
 
-tasks.register('frontendBuild', Exec) {
-	workingDir(frontendDir)
-	commandLine('npm', 'run', 'build')
-}
+def frontendEnabled = !project.hasProperty('skipFrontend') &&
+		frontendDir.exists() &&
+		file("${frontendDir}/package.json").exists()
 
-tasks.register('copyFrontend', Copy) {
-	dependsOn(tasks.named('frontendBuild'))
-	from(frontendDistDir)
-	into(layout.buildDirectory.dir('resources/main/static'))
-}
+if (frontendEnabled) {
+	tasks.register('frontendBuild', Exec) {
+		workingDir(frontendDir)
+		commandLine('npm', 'run', 'build')
+	}
 
-tasks.named('bootRun') {
-	dependsOn(tasks.named('copyFrontend'))
-}
+	tasks.register('copyFrontend', Copy) {
+		dependsOn(tasks.named('frontendBuild'))
+		from(frontendDistDir)
+		into(layout.buildDirectory.dir('resources/main/static'))
+	}
 
-tasks.named('bootJar') {
-	dependsOn(tasks.named('copyFrontend'))
-}
+	tasks.named('bootRun') {
+		dependsOn(tasks.named('copyFrontend'))
+	}
 
-tasks.named('resolveMainClassName') {
-	dependsOn(tasks.named('copyFrontend'))
+	tasks.named('bootJar') {
+		dependsOn(tasks.named('copyFrontend'))
+	}
+
+	tasks.named('resolveMainClassName') {
+		dependsOn(tasks.named('copyFrontend'))
+	}
+} else {
+	logger.lifecycle("[frontend] skipping frontend build/copy (pass no -PskipFrontend and ensure ${frontendDir} has package.json)")
 }
