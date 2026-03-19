@@ -72,6 +72,18 @@
         <button id="btnMe">/api/users/me</button>
         <pre id="outMe"></pre>
       </div>
+
+      <div class="card">
+        <h2>퀴즈 문제 보기</h2>
+        <div class="hint">먼저 세션을 시작한 뒤, 원하는 stage의 다음 문제를 조회합니다. `SENTENCE`는 유저 레벨 기준으로 랜덤 출제됩니다.</div>
+        <label for="quiz_stage">Stage</label>
+        <input id="quiz_stage" value="SENTENCE" placeholder="예: SENTENCE" />
+        <div class="row">
+          <button id="btnStartSession">/api/quiz/sessions</button>
+          <button id="btnNextQuestion">/api/quiz/sessions/{id}/next</button>
+        </div>
+        <pre id="outQuiz"></pre>
+      </div>
     </div>
   </main>
 
@@ -80,6 +92,7 @@
     const outSignup = document.getElementById('outSignup');
     const outLogin = document.getElementById('outLogin');
     const outMe = document.getElementById('outMe');
+    const outQuiz = document.getElementById('outQuiz');
 
     function getToken() {
       return localStorage.getItem('accessToken');
@@ -87,6 +100,14 @@
 
     function setToken(token) {
       localStorage.setItem('accessToken', token);
+    }
+
+    function getSessionId() {
+      return localStorage.getItem('quizSessionId');
+    }
+
+    function setSessionId(sessionId) {
+      localStorage.setItem('quizSessionId', String(sessionId));
     }
 
     function pretty(v) {
@@ -113,7 +134,7 @@
     }
 
     function writeMeta() {
-      outMeta.textContent = pretty({ token: getToken() });
+      outMeta.textContent = pretty({ token: getToken(), quizSessionId: getSessionId() });
     }
     writeMeta();
 
@@ -159,6 +180,41 @@
         outMe.textContent = pretty(data);
       } catch (e) {
         outMe.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnStartSession').addEventListener('click', async () => {
+      outQuiz.textContent = '...';
+      try {
+        const data = await api('/api/quiz/sessions', { method: 'POST' });
+        if (data && data.sessionId) setSessionId(data.sessionId);
+        writeMeta();
+        outQuiz.textContent = pretty({
+          message: '세션이 시작되었습니다.',
+          sessionId: getSessionId(),
+          response: data
+        });
+      } catch (e) {
+        outQuiz.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnNextQuestion').addEventListener('click', async () => {
+      outQuiz.textContent = '...';
+      try {
+        const sessionId = getSessionId();
+        const stage = (document.getElementById('quiz_stage').value || 'SENTENCE').trim().toUpperCase();
+        if (!sessionId) throw { message: '먼저 /api/quiz/sessions 로 세션을 시작하세요.' };
+        const data = await api(`/api/quiz/sessions/${sessionId}/next?stage=${encodeURIComponent(stage)}`, { method: 'GET' });
+        outQuiz.textContent = pretty({
+          sessionId,
+          stage,
+          questionId: data?.questionId,
+          sentence: data?.sentence,
+          raw: data
+        });
+      } catch (e) {
+        outQuiz.textContent = pretty(e);
       }
     });
   </script>

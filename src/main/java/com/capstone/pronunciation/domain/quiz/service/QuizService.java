@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,10 @@ import com.capstone.pronunciation.domain.user.repository.UserRepository;
 
 @Service
 public class QuizService {
+	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
+	private static final int LEVEL_EVAL_WINDOW = 5;
+	private static final int LEVEL_UP_AVERAGE_SCORE = 85;
+	private static final int LEVEL_DOWN_AVERAGE_SCORE = 60;
 
 	private final UserRepository userRepository;
 	private final CurriculumStageRepository stageRepository;
@@ -73,11 +78,20 @@ public class QuizService {
 		LearningSession session = learningSessionRepository.findByIdAndUser_Id(sessionId, user.getId())
 				.orElseThrow(() -> new IllegalArgumentException("세션을 찾을 수 없습니다."));
 
-		CurriculumStage stage = stageRepository.findByStageName(stageName)
+		Set<Long> answered = new HashSet<>(sessionResultRepository.findQuestionIdsBySession(session.getId()));
+
+		if (isSentenceStage(stageName)) {
+			QuizQuestion question = pickSentenceQuestionForLevel(user.getLevel(), answered);
+			if (question == null) {
+				return null;
+			}
+			return new NextQuestionResponse(question.getId(), question.getStage().getStageName(), question.getSentence());
+		}
+
+		CurriculumStage stage = stageRepository.findByStageNameIgnoreCase(stageName)
 				.orElseThrow(() -> new IllegalArgumentException("단계를 찾을 수 없습니다."));
 
 		List<QuizQuestion> questions = questionRepository.findByStage_IdOrderByIdAsc(stage.getId());
-		Set<Long> answered = new HashSet<>(sessionResultRepository.findQuestionIdsBySession(session.getId()));
 
 		for (QuizQuestion q : questions) {
 			if (!answered.contains(q.getId())) {
@@ -86,6 +100,33 @@ public class QuizService {
 		}
 
 		return null;
+	}
+
+	private QuizQuestion pickSentenceQuestionForLevel(int userLevel, Set<Long> answered) {
+		int minDifficulty = Math.max(1, userLevel - 1);
+		int maxDifficulty = userLevel + 1;
+
+		List<QuizQuestion> candidates = questionRepository
+				.findByStage_StageNameStartingWithIgnoreCaseAndDifficultyBetweenOrderByIdAsc(
+						SENTENCE_STAGE_PREFIX,
+						minDifficulty,
+						maxDifficulty)
+				.stream()
+				.filter(q -> !answered.contains(q.getId()))
+				.toList();
+
+		if (candidates.isEmpty()) {
+			candidates = questionRepository.findByStage_StageNameStartingWithIgnoreCaseOrderByIdAsc(SENTENCE_STAGE_PREFIX)
+					.stream()
+					.filter(q -> !answered.contains(q.getId()))
+					.toList();
+		}
+
+		if (candidates.isEmpty()) {
+			return null;
+		}
+
+		return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
 	}
 
 	@Transactional
@@ -119,6 +160,7 @@ public class QuizService {
 				null,
 				Instant.now()
 		));
+		updateUserLevelIfNeeded(user, q);
 
 		return new SubmitAnswerResponse(result.getId(), score, expected, transcript);
 	}
@@ -161,6 +203,7 @@ public class QuizService {
 				null,
 				Instant.now()
 		));
+		updateUserLevelIfNeeded(user, q);
 
 		String expected = q.getAnswer() != null && !q.getAnswer().isBlank() ? q.getAnswer() : q.getSentence();
 		return new SubmitAnswerResponse(result.getId(), finalScore, expected, request.transcript());
@@ -206,9 +249,49 @@ public class QuizService {
 				audioData,
 				Instant.now()
 		));
+		updateUserLevelIfNeeded(user, q);
 
 		String expected = q.getAnswer() != null && !q.getAnswer().isBlank() ? q.getAnswer() : q.getSentence();
 		return new SubmitAnswerResponse(result.getId(), finalScore, expected, transcript);
+	}
+
+	private void updateUserLevelIfNeeded(User user, QuizQuestion question) {
+		if (!isSentenceStage(question.getStage().getStageName())) {
+			return;
+		}
+
+		List<SessionResult> recentSentenceResults = sessionResultRepository
+				.findRecentByUserIdAndStagePrefix(user.getId(), SENTENCE_STAGE_PREFIX, LEVEL_EVAL_WINDOW);
+		if (recentSentenceResults.size() < 3) {
+			return;
+		}
+
+		double averageScore = recentSentenceResults.stream()
+				.mapToInt(SessionResult::getScore)
+				.average()
+				.orElse(0);
+
+		int currentLevel = user.getLevel();
+		int maxLevel = questionRepository.findTopByStage_StageNameStartingWithIgnoreCaseOrderByDifficultyDesc(SENTENCE_STAGE_PREFIX)
+				.map(QuizQuestion::getDifficulty)
+				.orElse(currentLevel);
+
+		if (averageScore >= LEVEL_UP_AVERAGE_SCORE && currentLevel < maxLevel) {
+			user.setLevel(currentLevel + 1);
+			return;
+		}
+
+		if (averageScore <= LEVEL_DOWN_AVERAGE_SCORE && currentLevel > 1) {
+			user.setLevel(currentLevel - 1);
+		}
+	}
+
+	private static boolean isSentenceStage(String stageName) {
+		if (stageName == null) {
+			return false;
+		}
+		String normalized = stageName.trim().toLowerCase();
+		return normalized.equals("sentence") || normalized.startsWith("sentence lv");
 	}
 
 	private static int clampScore(Integer score) {

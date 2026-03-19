@@ -23,7 +23,7 @@ public class User {
 	@Column(nullable = false, length = 50)
 	private String name;
 
-	@Column(nullable = false)
+	@Column(nullable = false, columnDefinition = "integer default 1")
 	private int level;
 
 	protected User() {
@@ -34,6 +34,13 @@ public class User {
 		this.password = password;
 		this.name = name;
 		this.level = level;
+	}
+
+	@PrePersist
+	protected void applyDefaultLevel() {
+		if (level <= 0) {
+			level = 1;
+		}
 	}
 
 	public Long getId() {

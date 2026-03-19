@@ -25,6 +25,9 @@ public class QuizQuestion {
 	@Column(name = "phonetic_symbol", length = 50)
 	private String phoneticSymbol;
 
+	@Column(nullable = false, columnDefinition = "integer default 1")
+	private int difficulty;
+
 	protected QuizQuestion() {
 	}
 
@@ -32,6 +35,7 @@ public class QuizQuestion {
 		this.stage = stage;
 		this.sentence = sentence;
 		this.answer = answer;
+		this.difficulty = stage.getDifficulty();
 	}
 
 	public QuizQuestion(CurriculumStage stage, String sentence, String answer, String phoneticSymbol) {
@@ -39,6 +43,15 @@ public class QuizQuestion {
 		this.sentence = sentence;
 		this.answer = answer;
 		this.phoneticSymbol = phoneticSymbol;
+		this.difficulty = stage.getDifficulty();
+	}
+
+	public QuizQuestion(CurriculumStage stage, String sentence, String answer, String phoneticSymbol, int difficulty) {
+		this.stage = stage;
+		this.sentence = sentence;
+		this.answer = answer;
+		this.phoneticSymbol = phoneticSymbol;
+		this.difficulty = difficulty;
 	}
 
 	public Long getId() {
@@ -75,5 +88,20 @@ public class QuizQuestion {
 
 	public void setPhoneticSymbol(String phoneticSymbol) {
 		this.phoneticSymbol = phoneticSymbol;
+	}
+
+	public int getDifficulty() {
+		return difficulty;
+	}
+
+	public void setDifficulty(int difficulty) {
+		this.difficulty = difficulty;
+	}
+
+	@PrePersist
+	protected void applyDefaultDifficulty() {
+		if (difficulty <= 0) {
+			difficulty = stage != null ? stage.getDifficulty() : 1;
+		}
 	}
 }

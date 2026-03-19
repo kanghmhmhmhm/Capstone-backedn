@@ -25,6 +25,8 @@ import com.capstone.pronunciation.domain.user.repository.UserRepository;
 
 @Service
 public class CurriculumService {
+	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
+
 	private final CurriculumStageRepository stageRepository;
 	private final QuizQuestionRepository questionRepository;
 	private final LearningSessionRepository learningSessionRepository;
@@ -81,17 +83,23 @@ public class CurriculumService {
 		User user = userRepository.findByEmail(email)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-		CurriculumStage stage = stageRepository.findByStageName(stageName)
-				.orElseThrow(() -> new IllegalArgumentException("단계를 찾을 수 없습니다."));
+		List<QuizQuestion> questions;
+		if (isSentenceStage(stageName)) {
+			questions = questionRepository.findByStage_StageNameStartingWithIgnoreCaseOrderByIdAsc(SENTENCE_STAGE_PREFIX);
+		} else {
+			CurriculumStage stage = stageRepository.findByStageNameIgnoreCase(stageName)
+					.orElseThrow(() -> new IllegalArgumentException("단계를 찾을 수 없습니다."));
+			questions = questionRepository.findByStage_IdOrderByIdAsc(stage.getId());
+		}
 
-		List<QuizQuestion> questions = questionRepository.findByStage_IdOrderByIdAsc(stage.getId());
 		List<LessonSummaryResponse> responses = new ArrayList<>(questions.size());
 		for (QuizQuestion q : questions) {
 			boolean completed = sessionResultRepository.existsByUserAndQuestion(user.getId(), q.getId());
 			responses.add(new LessonSummaryResponse(
 					q.getId(),
-					stage.getId(),
-					stage.getStageName(),
+					q.getStage().getId(),
+					q.getStage().getStageName(),
+					q.getDifficulty(),
 					q.getSentence(),
 					q.getPhoneticSymbol(),
 					completed
@@ -113,6 +121,7 @@ public class CurriculumService {
 				q.getId(),
 				q.getStage().getId(),
 				q.getStage().getStageName(),
+				q.getDifficulty(),
 				q.getSentence(),
 				q.getPhoneticSymbol(),
 				q.getAnswer(),
@@ -148,5 +157,13 @@ public class CurriculumService {
 			progress.setCompleted(true);
 			userProgressRepository.save(progress);
 		}
+	}
+
+	private static boolean isSentenceStage(String stageName) {
+		if (stageName == null) {
+			return false;
+		}
+		String normalized = stageName.trim().toLowerCase();
+		return normalized.equals("sentence") || normalized.startsWith("sentence lv");
 	}
 }

@@ -49,7 +49,45 @@ public interface SessionResultRepository extends JpaRepository<SessionResult, Lo
 			""")
 	List<SessionResult> findRecentByUserId(@Param("userId") Long userId, Pageable pageable);
 
+	@Query("""
+			select r
+			from SessionResult r
+			join fetch r.session s
+			join fetch r.question q
+			join fetch q.stage st
+			where s.user.id = :userId
+			  and st.stageName = :stageName
+			order by r.createdAt desc, r.id desc
+			""")
+	List<SessionResult> findRecentByUserIdAndStageName(
+			@Param("userId") Long userId,
+			@Param("stageName") String stageName,
+			Pageable pageable);
+
+	@Query("""
+			select r
+			from SessionResult r
+			join fetch r.session s
+			join fetch r.question q
+			join fetch q.stage st
+			where s.user.id = :userId
+			  and lower(st.stageName) like lower(concat(:stagePrefix, '%'))
+			order by r.createdAt desc, r.id desc
+			""")
+	List<SessionResult> findRecentByUserIdAndStagePrefix(
+			@Param("userId") Long userId,
+			@Param("stagePrefix") String stagePrefix,
+			Pageable pageable);
+
 	default List<SessionResult> findRecentByUserId(Long userId, int limit) {
 		return findRecentByUserId(userId, Pageable.ofSize(limit));
+	}
+
+	default List<SessionResult> findRecentByUserIdAndStageName(Long userId, String stageName, int limit) {
+		return findRecentByUserIdAndStageName(userId, stageName, Pageable.ofSize(limit));
+	}
+
+	default List<SessionResult> findRecentByUserIdAndStagePrefix(Long userId, String stagePrefix, int limit) {
+		return findRecentByUserIdAndStagePrefix(userId, stagePrefix, Pageable.ofSize(limit));
 	}
 }

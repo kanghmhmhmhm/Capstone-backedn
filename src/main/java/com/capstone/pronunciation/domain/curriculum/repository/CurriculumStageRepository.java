@@ -10,6 +10,7 @@ import com.capstone.pronunciation.domain.curriculum.entity.CurriculumStage;
 public interface CurriculumStageRepository extends JpaRepository<CurriculumStage, Long> {
 	Optional<CurriculumStage> findByStageName(String stageName);
 
+	Optional<CurriculumStage> findByStageNameIgnoreCase(String stageName);
+
 	List<CurriculumStage> findAllByOrderByOrderAsc();
 }
-
