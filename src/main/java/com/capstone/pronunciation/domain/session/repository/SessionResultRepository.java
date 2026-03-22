@@ -1,6 +1,7 @@
 package com.capstone.pronunciation.domain.session.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -35,6 +36,29 @@ public interface SessionResultRepository extends JpaRepository<SessionResult, Lo
 			where r.session.id = :sessionId
 			""")
 	List<Long> findQuestionIdsBySession(@Param("sessionId") Long sessionId);
+
+	@Query("""
+			select r
+			from SessionResult r
+			join fetch r.question q
+			join fetch q.stage st
+			left join fetch r.pronunciationScore ps
+			left join fetch r.submission sub
+			where r.session.id = :sessionId
+			order by r.createdAt asc, r.id asc
+			""")
+	List<SessionResult> findDetailedBySessionId(@Param("sessionId") Long sessionId);
+
+	long countBySession_Id(Long sessionId);
+
+	@Query("""
+			select avg(r.score)
+			from SessionResult r
+			where r.session.id = :sessionId
+			""")
+	Optional<Double> findAverageScoreBySessionId(@Param("sessionId") Long sessionId);
+
+	Optional<SessionResult> findTopBySession_IdOrderByCreatedAtDescIdDesc(Long sessionId);
 
 	@Query("""
 			select r

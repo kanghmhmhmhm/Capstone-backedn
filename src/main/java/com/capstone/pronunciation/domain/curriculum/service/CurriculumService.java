@@ -142,7 +142,7 @@ public class CurriculumService {
 		}
 
 		Instant now = Instant.now();
-		LearningSession session = learningSessionRepository.save(new LearningSession(user, now, now));
+		LearningSession session = learningSessionRepository.save(new LearningSession(user, now, now, q.getDifficulty()));
 		sessionResultRepository.save(new SessionResult(session, q, score));
 
 		markStageCompletedIfDone(user, q.getStage());

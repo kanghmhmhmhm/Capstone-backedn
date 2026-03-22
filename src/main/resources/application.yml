@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: pronunciationdemo
+  datasource:
+    url: jdbc:mysql://localhost:3307/pronunciation?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8
+    username: app
+    password: app
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+app:
+  jwt:
+    # 운영에서는 절대 하드코딩하지 말고 환경변수/시크릿으로 주입하세요.
+    secret: ${APP_JWT_SECRET:CHANGE_ME_DEV_SECRET_32BYTES_MINIMUM}
+    access-token-ttl-seconds: 3600
+  cors:
+    # 프론트를 별도 도메인/포트에서 운영할 때만 설정이 필요합니다.
+    # 예) https://my-frontend.example.com,http://localhost:5173
+    allowed-origin-patterns: ${APP_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
+  fastapi:
+    base-url: ${FASTAPI_BASE_URL:http://localhost:8000}
+    analyze-path: ${FASTAPI_ANALYZE_PATH:/analyze}
+
+cloud:
+  aws:
+    s3:
+      bucket: ${AWS_S3_BUCKET:aws-s3-capstone-kang}
+    stack:
+      auto: false
+    region:
+      static: ap-northeast-2
+    credentials:
+      access-key: ${AWS_ACCESS_KEY_ID:}
+      secret-key: ${AWS_SECRET_ACCESS_KEY:}

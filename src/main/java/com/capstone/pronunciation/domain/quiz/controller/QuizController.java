@@ -1,12 +1,7 @@
 package com.capstone.pronunciation.domain.quiz.controller;
 
-import java.util.Locale;
-import java.util.Optional;
-
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,12 +10,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.capstone.pronunciation.domain.quiz.dto.NextQuestionResponse;
 import com.capstone.pronunciation.domain.quiz.dto.StartSessionResponse;
 import com.capstone.pronunciation.domain.quiz.dto.SubmitAnswerRequest;
 import com.capstone.pronunciation.domain.quiz.dto.SubmitAnswerResponse;
 import com.capstone.pronunciation.domain.quiz.dto.SubmitGradedRequest;
 import com.capstone.pronunciation.domain.quiz.service.QuizService;
+import com.capstone.pronunciation.domain.session.dto.SessionStartRequest;
 
 @RequestMapping("/api/quiz")
 @RestController
@@ -32,20 +27,10 @@ public class QuizController {
 	}
 
 	@PostMapping("/sessions")
-	public StartSessionResponse startSession(Authentication authentication) {
-		return quizService.startSession(authentication.getName());
-	}
-
-	@GetMapping("/sessions/{sessionId}/next")
-	public ResponseEntity<NextQuestionResponse> nextQuestion(
+	public StartSessionResponse startSession(
 			Authentication authentication,
-			@PathVariable Long sessionId,
-			@RequestParam String stage) {
-		NextQuestionResponse next = quizService.nextQuestion(
-				authentication.getName(),
-				sessionId,
-				stage.trim().toUpperCase(Locale.ROOT));
-		return ResponseEntity.of(Optional.ofNullable(next));
+			@RequestBody SessionStartRequest request) {
+		return quizService.startSession(authentication.getName(), request.selectedLevel());
 	}
 
 	@PostMapping("/sessions/{sessionId}/submit")

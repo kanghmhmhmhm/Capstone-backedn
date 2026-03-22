@@ -15,8 +15,9 @@
     .card { background: #fff; border: 1px solid #e7e7ef; border-radius: 12px; padding: 14px; box-shadow: 0 1px 0 rgba(0,0,0,0.03); }
     .card h2 { margin: 0 0 10px; font-size: 14px; }
     label { display: block; font-size: 12px; color: #333; margin: 10px 0 6px; }
-    input { width: 100%; box-sizing: border-box; padding: 10px 10px; border-radius: 10px; border: 1px solid #d8d8e3; outline: none; }
+    input, textarea { width: 100%; box-sizing: border-box; padding: 10px 10px; border-radius: 10px; border: 1px solid #d8d8e3; outline: none; font: inherit; }
     input:focus { border-color: #111; }
+    textarea:focus { border-color: #111; }
     button { margin-top: 12px; padding: 10px 12px; border: 0; border-radius: 10px; background: #111; color: #fff; cursor: pointer; }
     button.secondary { background: #444; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -75,14 +76,55 @@
 
       <div class="card">
         <h2>퀴즈 문제 보기</h2>
-        <div class="hint">먼저 세션을 시작한 뒤, 원하는 stage의 다음 문제를 조회합니다. `SENTENCE`는 유저 레벨 기준으로 랜덤 출제됩니다.</div>
-        <label for="quiz_stage">Stage</label>
-        <input id="quiz_stage" value="SENTENCE" placeholder="예: SENTENCE" />
-        <div class="row">
-          <button id="btnStartSession">/api/quiz/sessions</button>
-          <button id="btnNextQuestion">/api/quiz/sessions/{id}/next</button>
-        </div>
+        <div class="hint">세션을 시작하면 선택한 레벨의 문제 5개가 한 번에 내려옵니다.</div>
+        <label for="quiz_level">Selected Level</label>
+        <input id="quiz_level" type="number" min="1" max="10" value="1" placeholder="예: 3" />
+        <button id="btnStartSession">/api/quiz/sessions</button>
         <pre id="outQuiz"></pre>
+      </div>
+
+      <div class="card">
+        <h2>세션 관리</h2>
+        <div class="hint">전용 세션 API로 시작, 종료, 목록, 상세, 진행률을 확인합니다.</div>
+        <label for="session_level">Selected Level</label>
+        <input id="session_level" type="number" min="1" max="10" value="1" placeholder="예: 3" />
+        <label for="session_manage_id">Session ID</label>
+        <input id="session_manage_id" placeholder="예: 1" />
+        <div class="row">
+          <button id="btnSessionStart">/api/sessions</button>
+          <button id="btnSessionEnd">/api/sessions/{id}/end</button>
+        </div>
+        <div class="row">
+          <button class="secondary" id="btnSessionList">/api/sessions</button>
+          <button class="secondary" id="btnSessionDetail">/api/sessions/{id}</button>
+          <button class="secondary" id="btnSessionProgress">/api/sessions/{id}/progress</button>
+        </div>
+        <pre id="outSession"></pre>
+      </div>
+
+      <div class="card">
+        <h2>음성 업로드</h2>
+        <div class="hint">`mp3` 파일만 업로드할 수 있습니다. 업로드 성공 시 <code>uploadId</code>와 <code>key</code>를 자동 저장합니다.</div>
+        <label for="audio_file">MP3 파일</label>
+        <input id="audio_file" type="file" accept=".mp3,audio/mpeg" />
+        <div class="row">
+          <button id="btnUploadAudio">/api/uploads/audio</button>
+          <button class="secondary" id="btnGetPresigned">/api/uploads/presigned-url</button>
+        </div>
+        <pre id="outUpload"></pre>
+      </div>
+
+      <div class="card">
+        <h2>FastAPI 전송</h2>
+        <div class="hint">최근 업로드한 <code>uploadId</code>를 사용해 Spring이 presigned URL을 만들어 FastAPI로 JSON을 전송합니다.</div>
+        <label for="fa_uploadId">Upload ID</label>
+        <input id="fa_uploadId" placeholder="예: 1" />
+        <label for="fa_questionId">Question ID</label>
+        <input id="fa_questionId" placeholder="예: 34" />
+        <label for="fa_expectedText">Expected Text</label>
+        <textarea id="fa_expectedText" rows="3" placeholder="예: How are you today?"></textarea>
+        <button id="btnSendFastApi">/api/uploads/{uploadId}/send-to-fastapi</button>
+        <pre id="outFastApi"></pre>
       </div>
     </div>
   </main>
@@ -93,6 +135,9 @@
     const outLogin = document.getElementById('outLogin');
     const outMe = document.getElementById('outMe');
     const outQuiz = document.getElementById('outQuiz');
+    const outSession = document.getElementById('outSession');
+    const outUpload = document.getElementById('outUpload');
+    const outFastApi = document.getElementById('outFastApi');
 
     function getToken() {
       return localStorage.getItem('accessToken');
@@ -108,6 +153,24 @@
 
     function setSessionId(sessionId) {
       localStorage.setItem('quizSessionId', String(sessionId));
+      document.getElementById('session_manage_id').value = String(sessionId);
+    }
+
+    function getUploadId() {
+      return localStorage.getItem('uploadId');
+    }
+
+    function setUploadId(uploadId) {
+      localStorage.setItem('uploadId', String(uploadId));
+      document.getElementById('fa_uploadId').value = String(uploadId);
+    }
+
+    function getUploadKey() {
+      return localStorage.getItem('uploadKey');
+    }
+
+    function setUploadKey(key) {
+      localStorage.setItem('uploadKey', key);
     }
 
     function pretty(v) {
@@ -134,7 +197,12 @@
     }
 
     function writeMeta() {
-      outMeta.textContent = pretty({ token: getToken(), quizSessionId: getSessionId() });
+      outMeta.textContent = pretty({
+        token: getToken(),
+        quizSessionId: getSessionId(),
+        uploadId: getUploadId(),
+        uploadKey: getUploadKey()
+      });
     }
     writeMeta();
 
@@ -186,7 +254,11 @@
     document.getElementById('btnStartSession').addEventListener('click', async () => {
       outQuiz.textContent = '...';
       try {
-        const data = await api('/api/quiz/sessions', { method: 'POST' });
+        const selectedLevel = Number(document.getElementById('quiz_level').value);
+        const data = await api('/api/quiz/sessions', {
+          method: 'POST',
+          json: { selectedLevel }
+        });
         if (data && data.sessionId) setSessionId(data.sessionId);
         writeMeta();
         outQuiz.textContent = pretty({
@@ -199,22 +271,141 @@
       }
     });
 
-    document.getElementById('btnNextQuestion').addEventListener('click', async () => {
-      outQuiz.textContent = '...';
+    function currentSessionIdForManage() {
+      return document.getElementById('session_manage_id').value || getSessionId();
+    }
+
+    document.getElementById('btnSessionStart').addEventListener('click', async () => {
+      outSession.textContent = '...';
       try {
-        const sessionId = getSessionId();
-        const stage = (document.getElementById('quiz_stage').value || 'SENTENCE').trim().toUpperCase();
-        if (!sessionId) throw { message: '먼저 /api/quiz/sessions 로 세션을 시작하세요.' };
-        const data = await api(`/api/quiz/sessions/${sessionId}/next?stage=${encodeURIComponent(stage)}`, { method: 'GET' });
-        outQuiz.textContent = pretty({
-          sessionId,
-          stage,
-          questionId: data?.questionId,
-          sentence: data?.sentence,
-          raw: data
+        const selectedLevel = Number(document.getElementById('session_level').value);
+        const data = await api('/api/sessions', {
+          method: 'POST',
+          json: { selectedLevel }
         });
+        if (data?.sessionId) setSessionId(data.sessionId);
+        writeMeta();
+        outSession.textContent = pretty(data);
       } catch (e) {
-        outQuiz.textContent = pretty(e);
+        outSession.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnSessionEnd').addEventListener('click', async () => {
+      outSession.textContent = '...';
+      try {
+        const sessionId = currentSessionIdForManage();
+        if (!sessionId) throw { message: 'sessionId가 필요합니다.' };
+        const data = await api(`/api/sessions/${encodeURIComponent(sessionId)}/end`, { method: 'POST' });
+        outSession.textContent = pretty(data);
+      } catch (e) {
+        outSession.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnSessionList').addEventListener('click', async () => {
+      outSession.textContent = '...';
+      try {
+        const data = await api('/api/sessions', { method: 'GET' });
+        outSession.textContent = pretty(data);
+      } catch (e) {
+        outSession.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnSessionDetail').addEventListener('click', async () => {
+      outSession.textContent = '...';
+      try {
+        const sessionId = currentSessionIdForManage();
+        if (!sessionId) throw { message: 'sessionId가 필요합니다.' };
+        const data = await api(`/api/sessions/${encodeURIComponent(sessionId)}`, { method: 'GET' });
+        outSession.textContent = pretty(data);
+      } catch (e) {
+        outSession.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnSessionProgress').addEventListener('click', async () => {
+      outSession.textContent = '...';
+      try {
+        const sessionId = currentSessionIdForManage();
+        if (!sessionId) throw { message: 'sessionId가 필요합니다.' };
+        const data = await api(`/api/sessions/${encodeURIComponent(sessionId)}/progress`, { method: 'GET' });
+        outSession.textContent = pretty(data);
+      } catch (e) {
+        outSession.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnUploadAudio').addEventListener('click', async () => {
+      outUpload.textContent = '...';
+      try {
+        const fileInput = document.getElementById('audio_file');
+        const file = fileInput.files?.[0];
+        if (!file) throw { message: '먼저 mp3 파일을 선택하세요.' };
+
+        const form = new FormData();
+        form.append('file', file);
+
+        const headers = new Headers();
+        const token = getToken();
+        if (token) headers.set('authorization', `Bearer ${token}`);
+
+        const res = await fetch('/api/uploads/audio', {
+          method: 'POST',
+          headers,
+          body: form
+        });
+
+        const ct = res.headers.get('content-type') || '';
+        const data = ct.includes('application/json') ? await res.json().catch(() => null) : await res.text().catch(() => null);
+        if (!res.ok) throw { status: res.status, data };
+
+        if (data?.uploadId) setUploadId(data.uploadId);
+        if (data?.key) setUploadKey(data.key);
+        writeMeta();
+        outUpload.textContent = pretty(data);
+      } catch (e) {
+        outUpload.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnGetPresigned').addEventListener('click', async () => {
+      outUpload.textContent = '...';
+      try {
+        const key = getUploadKey();
+        if (!key) throw { message: '먼저 음성 업로드를 완료하세요.' };
+        const data = await api(`/api/uploads/presigned-url?key=${encodeURIComponent(key)}`, { method: 'GET' });
+        outUpload.textContent = pretty(data);
+      } catch (e) {
+        outUpload.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnSendFastApi').addEventListener('click', async () => {
+      outFastApi.textContent = '...';
+      try {
+        const uploadId = document.getElementById('fa_uploadId').value || getUploadId();
+        const sessionId = getSessionId();
+        const questionId = document.getElementById('fa_questionId').value;
+        const expectedText = document.getElementById('fa_expectedText').value;
+
+        if (!uploadId) throw { message: '업로드 ID가 필요합니다. 먼저 음성을 업로드하세요.' };
+        if (!sessionId) throw { message: '세션 ID가 필요합니다. 먼저 퀴즈 세션을 시작하세요.' };
+        if (!questionId) throw { message: 'questionId를 입력하세요.' };
+        if (!expectedText.trim()) throw { message: 'expectedText를 입력하세요.' };
+
+        const data = await api(`/api/uploads/${encodeURIComponent(uploadId)}/send-to-fastapi`, {
+          method: 'POST',
+          json: {
+            sessionId: Number(sessionId),
+            questionId: Number(questionId),
+            expectedText: expectedText.trim()
+          }
+        });
+        outFastApi.textContent = pretty(data);
+      } catch (e) {
+        outFastApi.textContent = pretty(e);
       }
     });
   </script>

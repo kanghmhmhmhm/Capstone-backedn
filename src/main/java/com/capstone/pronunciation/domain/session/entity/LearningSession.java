@@ -24,13 +24,17 @@ public class LearningSession {
 	@Column(name = "end_time")
 	private Instant endTime;
 
+	@Column(name = "selected_level")
+	private Integer selectedLevel;
+
 	protected LearningSession() {
 	}
 
-	public LearningSession(User user, Instant startTime, Instant endTime) {
+	public LearningSession(User user, Instant startTime, Instant endTime, Integer selectedLevel) {
 		this.user = user;
 		this.startTime = startTime;
 		this.endTime = endTime;
+		this.selectedLevel = selectedLevel;
 	}
 
 	public Long getId() {
@@ -56,5 +60,12 @@ public class LearningSession {
 	public void setEndTime(Instant endTime) {
 		this.endTime = endTime;
 	}
-}
 
+	public Integer getSelectedLevel() {
+		return selectedLevel;
+	}
+
+	public void setSelectedLevel(Integer selectedLevel) {
+		this.selectedLevel = selectedLevel;
+	}
+}
