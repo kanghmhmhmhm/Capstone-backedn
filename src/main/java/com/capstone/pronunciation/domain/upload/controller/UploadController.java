@@ -141,7 +141,8 @@ public class UploadController {
 				uploadFile,
 				request.sessionId(),
 				request.questionId(),
-				request.expectedText()
+				request.expectedText(),
+				request.frames()
 		);
 	}
 

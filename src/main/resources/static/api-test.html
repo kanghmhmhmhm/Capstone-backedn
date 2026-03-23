@@ -84,6 +84,20 @@
       </div>
 
       <div class="card">
+        <h2>문제 조회</h2>
+        <div class="hint">커리큘럼에서 단계별 문제 목록과 개별 문제 상세를 조회합니다.</div>
+        <label for="lesson_stage">Stage</label>
+        <input id="lesson_stage" value="SENTENCE" placeholder="예: SENTENCE" />
+        <label for="lesson_id">Lesson ID</label>
+        <input id="lesson_id" placeholder="예: 101" />
+        <div class="row">
+          <button id="btnLessonList">/api/curriculum/lessons</button>
+          <button class="secondary" id="btnLessonDetail">/api/curriculum/lessons/{lessonId}</button>
+        </div>
+        <pre id="outLesson"></pre>
+      </div>
+
+      <div class="card">
         <h2>세션 관리</h2>
         <div class="hint">전용 세션 API로 시작, 종료, 목록, 상세, 진행률을 확인합니다.</div>
         <label for="session_level">Selected Level</label>
@@ -135,6 +149,7 @@
     const outLogin = document.getElementById('outLogin');
     const outMe = document.getElementById('outMe');
     const outQuiz = document.getElementById('outQuiz');
+    const outLesson = document.getElementById('outLesson');
     const outSession = document.getElementById('outSession');
     const outUpload = document.getElementById('outUpload');
     const outFastApi = document.getElementById('outFastApi');
@@ -268,6 +283,32 @@
         });
       } catch (e) {
         outQuiz.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnLessonList').addEventListener('click', async () => {
+      outLesson.textContent = '...';
+      try {
+        const stage = (document.getElementById('lesson_stage').value || 'SENTENCE').trim().toUpperCase();
+        const data = await api(`/api/curriculum/lessons?stage=${encodeURIComponent(stage)}`, { method: 'GET' });
+        if (Array.isArray(data) && data.length > 0 && data[0]?.id) {
+          document.getElementById('lesson_id').value = String(data[0].id);
+        }
+        outLesson.textContent = pretty(data);
+      } catch (e) {
+        outLesson.textContent = pretty(e);
+      }
+    });
+
+    document.getElementById('btnLessonDetail').addEventListener('click', async () => {
+      outLesson.textContent = '...';
+      try {
+        const lessonId = document.getElementById('lesson_id').value;
+        if (!lessonId) throw { message: 'lessonId를 먼저 입력하거나 목록 조회를 먼저 실행하세요.' };
+        const data = await api(`/api/curriculum/lessons/${encodeURIComponent(lessonId)}`, { method: 'GET' });
+        outLesson.textContent = pretty(data);
+      } catch (e) {
+        outLesson.textContent = pretty(e);
       }
     });
 
