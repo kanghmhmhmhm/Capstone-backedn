@@ -11,6 +11,7 @@ import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -31,8 +32,12 @@ import com.capstone.pronunciation.domain.user.entity.User;
 import com.capstone.pronunciation.domain.user.repository.UserRepository;
 import com.capstone.pronunciation.global.config.S3Config;
 
-@RequestMapping("/api/uploads")
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
+@RequestMapping("/api/media/audio")
 @RestController
+@Tag(name = "Audio Media", description = "오디오 업로드, presigned URL, AI 분석 요청 API")
 public class UploadController {
 
 	private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -57,7 +62,8 @@ public class UploadController {
 		this.fastApiUploadService = fastApiUploadService;
 	}
 
-	@PostMapping(value = "/audio", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@Operation(summary = "오디오 업로드", description = "mp3 오디오 파일을 업로드하고 업로드 식별자와 파일 메타데이터를 반환합니다.")
 	public UploadResponse uploadAudio(
 			Authentication authentication,
 			@RequestParam("file") MultipartFile file) throws IOException {
@@ -107,27 +113,29 @@ public class UploadController {
 		return new UploadResponse(uploadFile.getId(), key, objectUrl, contentType, file.getSize());
 	}
 
-	@GetMapping("/presigned-url")
+	@GetMapping("/{uploadId}/presigned-url")
+	@Operation(summary = "오디오 presigned URL 조회", description = "업로드된 오디오 파일에 접근할 수 있는 presigned URL을 발급합니다.")
 	public PresignedUrlResponse getPresignedUrl(
 			Authentication authentication,
-			@RequestParam("key") String key) {
+			@PathVariable Long uploadId) {
 		String username = extractUsername(authentication);
-		if (key == null || key.isBlank()) {
-			throw new IllegalArgumentException("key 값이 필요합니다.");
-		}
-		if (!key.startsWith("audio/%s/".formatted(username))) {
+		UploadFile uploadFile = uploadFileRepository.findById(uploadId)
+				.orElseThrow(() -> new IllegalArgumentException("업로드 파일을 찾을 수 없습니다."));
+		if (!uploadFile.getUser().getEmail().equals(username)) {
 			throw new IllegalArgumentException("본인 파일만 조회할 수 있습니다.");
 		}
 
+		String key = uploadFile.getS3Key();
 		Date expiration = new Date(System.currentTimeMillis() + PRESIGNED_URL_EXPIRES_IN_SECONDS * 1000);
 		URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), key, expiration);
 		return new PresignedUrlResponse(key, presignedUrl.toString(), PRESIGNED_URL_EXPIRES_IN_SECONDS);
 	}
 
-	@PostMapping("/{uploadId}/send-to-fastapi")
-	public FastApiDispatchResponse sendToFastApi(
+	@PostMapping("/{uploadId}/analyze")
+	@Operation(summary = "오디오 AI 분석 요청", description = "업로드된 오디오와 프레임 데이터를 FastAPI 분석 서버로 전달하고 결과를 저장합니다.")
+	public FastApiDispatchResponse analyze(
 			Authentication authentication,
-			@org.springframework.web.bind.annotation.PathVariable Long uploadId,
+			@PathVariable Long uploadId,
 			@org.springframework.web.bind.annotation.RequestBody SendToFastApiRequest request) {
 		String username = extractUsername(authentication);
 		UploadFile uploadFile = uploadFileRepository.findById(uploadId)

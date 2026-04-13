@@ -4,7 +4,8 @@ public record SubmitAnswerResponse(
 		Long resultId,
 		int score,
 		String expected,
-		String transcript
+		String transcript,
+		Long uploadId,
+		String audioUrl
 ) {
 }
-

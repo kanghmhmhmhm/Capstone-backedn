@@ -3,6 +3,7 @@ package com.capstone.pronunciation.domain.session.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -44,6 +45,7 @@ public interface SessionResultRepository extends JpaRepository<SessionResult, Lo
 			join fetch q.stage st
 			left join fetch r.pronunciationScore ps
 			left join fetch r.submission sub
+			left join fetch sub.uploadFile uf
 			where r.session.id = :sessionId
 			order by r.createdAt asc, r.id asc
 			""")
@@ -68,6 +70,7 @@ public interface SessionResultRepository extends JpaRepository<SessionResult, Lo
 			join fetch q.stage st
 			left join fetch r.pronunciationScore ps
 			left join fetch r.submission sub
+			left join fetch sub.uploadFile uf
 			where s.user.id = :userId
 			order by r.createdAt desc, r.id desc
 			""")
@@ -114,4 +117,34 @@ public interface SessionResultRepository extends JpaRepository<SessionResult, Lo
 	default List<SessionResult> findRecentByUserIdAndStagePrefix(Long userId, String stagePrefix, int limit) {
 		return findRecentByUserIdAndStagePrefix(userId, stagePrefix, Pageable.ofSize(limit));
 	}
+
+	@Query("""
+			select r
+			from SessionResult r
+			join fetch r.session s
+			join fetch r.question q
+			join fetch q.stage st
+			left join fetch r.pronunciationScore ps
+			left join fetch r.submission sub
+			where s.user.id = :userId
+			order by r.createdAt desc, r.id desc
+			""")
+	List<SessionResult> findDetailedByUserId(@Param("userId") Long userId);
+
+	@Query("""
+			select avg(r.score)
+			from SessionResult r
+			join r.session s
+			where s.user.id = :userId
+			""")
+	Optional<Double> findAverageScoreByUserId(@Param("userId") Long userId);
+
+	@Modifying
+	@Query("""
+			delete from SessionResult r
+			where r.session.id in (
+				select s.id from LearningSession s where s.user.id = :userId
+			)
+			""")
+	void deleteByUserId(@Param("userId") Long userId);
 }

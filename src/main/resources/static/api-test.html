@@ -53,7 +53,7 @@
         <input id="su_pw" type="password" placeholder="예: pw1234" autocomplete="new-password" />
         <label for="su_name">이름</label>
         <input id="su_name" placeholder="예: 테스트" autocomplete="name" />
-        <button id="btnSignup">/api/users/signup</button>
+        <button id="btnSignup">/api/auth/signup</button>
         <pre id="outSignup"></pre>
       </div>
 
@@ -63,14 +63,14 @@
         <input id="li_email" placeholder="예: test@example.com" autocomplete="username" />
         <label for="li_pw">비밀번호</label>
         <input id="li_pw" type="password" placeholder="예: pw1234" autocomplete="current-password" />
-        <button id="btnLogin">/api/users/login</button>
+        <button id="btnLogin">/api/auth/login</button>
         <pre id="outLogin"></pre>
       </div>
 
       <div class="card">
         <h2>내 정보</h2>
         <div class="hint">헤더 <code>Authorization: Bearer &lt;token&gt;</code> 필요</div>
-        <button id="btnMe">/api/users/me</button>
+        <button id="btnMe">/api/me</button>
         <pre id="outMe"></pre>
       </div>
 
@@ -79,7 +79,7 @@
         <div class="hint">세션을 시작하면 선택한 레벨의 문제 5개가 한 번에 내려옵니다.</div>
         <label for="quiz_level">Selected Level</label>
         <input id="quiz_level" type="number" min="1" max="10" value="1" placeholder="예: 3" />
-        <button id="btnStartSession">/api/quiz/sessions</button>
+        <button id="btnStartSession">/api/learning/sessions</button>
         <pre id="outQuiz"></pre>
       </div>
 
@@ -105,13 +105,13 @@
         <label for="session_manage_id">Session ID</label>
         <input id="session_manage_id" placeholder="예: 1" />
         <div class="row">
-          <button id="btnSessionStart">/api/sessions</button>
-          <button id="btnSessionEnd">/api/sessions/{id}/end</button>
+          <button id="btnSessionStart">/api/learning/sessions</button>
+          <button id="btnSessionEnd">/api/learning/sessions/{id}/end</button>
         </div>
         <div class="row">
-          <button class="secondary" id="btnSessionList">/api/sessions</button>
-          <button class="secondary" id="btnSessionDetail">/api/sessions/{id}</button>
-          <button class="secondary" id="btnSessionProgress">/api/sessions/{id}/progress</button>
+          <button class="secondary" id="btnSessionList">/api/history/sessions</button>
+          <button class="secondary" id="btnSessionDetail">/api/results/sessions/{id}</button>
+          <button class="secondary" id="btnSessionProgress">/api/learning/sessions/{id}/progress</button>
         </div>
         <pre id="outSession"></pre>
       </div>
@@ -122,8 +122,8 @@
         <label for="audio_file">MP3 파일</label>
         <input id="audio_file" type="file" accept=".mp3,audio/mpeg" />
         <div class="row">
-          <button id="btnUploadAudio">/api/uploads/audio</button>
-          <button class="secondary" id="btnGetPresigned">/api/uploads/presigned-url</button>
+          <button id="btnUploadAudio">/api/media/audio</button>
+          <button class="secondary" id="btnGetPresigned">/api/media/audio/presigned-url</button>
         </div>
         <pre id="outUpload"></pre>
       </div>
@@ -137,7 +137,7 @@
         <input id="fa_questionId" placeholder="예: 34" />
         <label for="fa_expectedText">Expected Text</label>
         <textarea id="fa_expectedText" rows="3" placeholder="예: How are you today?"></textarea>
-        <button id="btnSendFastApi">/api/uploads/{uploadId}/send-to-fastapi</button>
+        <button id="btnSendFastApi">/api/media/audio/{uploadId}/analyze</button>
         <pre id="outFastApi"></pre>
       </div>
     </div>
@@ -233,7 +233,7 @@
         const email = document.getElementById('su_email').value;
         const password = document.getElementById('su_pw').value;
         const name = document.getElementById('su_name').value;
-        const data = await api('/api/users/signup', { method: 'POST', json: { email, password, name } });
+        const data = await api('/api/auth/signup', { method: 'POST', json: { email, password, name } });
         if (data && data.accessToken) setToken(data.accessToken);
         writeMeta();
         outSignup.textContent = pretty(data);
@@ -247,7 +247,7 @@
       try {
         const email = document.getElementById('li_email').value;
         const password = document.getElementById('li_pw').value;
-        const data = await api('/api/users/login', { method: 'POST', json: { email, password } });
+        const data = await api('/api/auth/login', { method: 'POST', json: { email, password } });
         if (data && data.accessToken) setToken(data.accessToken);
         writeMeta();
         outLogin.textContent = pretty(data);
@@ -259,7 +259,7 @@
     document.getElementById('btnMe').addEventListener('click', async () => {
       outMe.textContent = '...';
       try {
-        const data = await api('/api/users/me', { method: 'GET' });
+        const data = await api('/api/me', { method: 'GET' });
         outMe.textContent = pretty(data);
       } catch (e) {
         outMe.textContent = pretty(e);
@@ -270,7 +270,7 @@
       outQuiz.textContent = '...';
       try {
         const selectedLevel = Number(document.getElementById('quiz_level').value);
-        const data = await api('/api/quiz/sessions', {
+        const data = await api('/api/learning/sessions', {
           method: 'POST',
           json: { selectedLevel }
         });
@@ -320,7 +320,7 @@
       outSession.textContent = '...';
       try {
         const selectedLevel = Number(document.getElementById('session_level').value);
-        const data = await api('/api/sessions', {
+        const data = await api('/api/learning/sessions', {
           method: 'POST',
           json: { selectedLevel }
         });
@@ -337,7 +337,7 @@
       try {
         const sessionId = currentSessionIdForManage();
         if (!sessionId) throw { message: 'sessionId가 필요합니다.' };
-        const data = await api(`/api/sessions/${encodeURIComponent(sessionId)}/end`, { method: 'POST' });
+        const data = await api(`/api/learning/sessions/${encodeURIComponent(sessionId)}/end`, { method: 'POST' });
         outSession.textContent = pretty(data);
       } catch (e) {
         outSession.textContent = pretty(e);
@@ -347,7 +347,7 @@
     document.getElementById('btnSessionList').addEventListener('click', async () => {
       outSession.textContent = '...';
       try {
-        const data = await api('/api/sessions', { method: 'GET' });
+        const data = await api('/api/history/sessions', { method: 'GET' });
         outSession.textContent = pretty(data);
       } catch (e) {
         outSession.textContent = pretty(e);
@@ -359,7 +359,7 @@
       try {
         const sessionId = currentSessionIdForManage();
         if (!sessionId) throw { message: 'sessionId가 필요합니다.' };
-        const data = await api(`/api/sessions/${encodeURIComponent(sessionId)}`, { method: 'GET' });
+        const data = await api(`/api/results/sessions/${encodeURIComponent(sessionId)}`, { method: 'GET' });
         outSession.textContent = pretty(data);
       } catch (e) {
         outSession.textContent = pretty(e);
@@ -371,7 +371,7 @@
       try {
         const sessionId = currentSessionIdForManage();
         if (!sessionId) throw { message: 'sessionId가 필요합니다.' };
-        const data = await api(`/api/sessions/${encodeURIComponent(sessionId)}/progress`, { method: 'GET' });
+        const data = await api(`/api/learning/sessions/${encodeURIComponent(sessionId)}/progress`, { method: 'GET' });
         outSession.textContent = pretty(data);
       } catch (e) {
         outSession.textContent = pretty(e);
@@ -392,7 +392,7 @@
         const token = getToken();
         if (token) headers.set('authorization', `Bearer ${token}`);
 
-        const res = await fetch('/api/uploads/audio', {
+        const res = await fetch('/api/media/audio', {
           method: 'POST',
           headers,
           body: form
@@ -416,7 +416,7 @@
       try {
         const key = getUploadKey();
         if (!key) throw { message: '먼저 음성 업로드를 완료하세요.' };
-        const data = await api(`/api/uploads/presigned-url?key=${encodeURIComponent(key)}`, { method: 'GET' });
+        const data = await api(`/api/media/audio/presigned-url?key=${encodeURIComponent(key)}`, { method: 'GET' });
         outUpload.textContent = pretty(data);
       } catch (e) {
         outUpload.textContent = pretty(e);
@@ -436,7 +436,7 @@
         if (!questionId) throw { message: 'questionId를 입력하세요.' };
         if (!expectedText.trim()) throw { message: 'expectedText를 입력하세요.' };
 
-        const data = await api(`/api/uploads/${encodeURIComponent(uploadId)}/send-to-fastapi`, {
+        const data = await api(`/api/media/audio/${encodeURIComponent(uploadId)}/analyze`, {
           method: 'POST',
           json: {
             sessionId: Number(sessionId),

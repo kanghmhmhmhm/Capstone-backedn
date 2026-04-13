@@ -2,6 +2,8 @@ package com.capstone.pronunciation.domain.session.entity;
 
 import java.time.Instant;
 
+import com.capstone.pronunciation.domain.upload.entity.UploadFile;
+
 import jakarta.persistence.*;
 
 @Table(
@@ -32,18 +34,9 @@ public class AnswerSubmission {
 	@Column(name = "provider_payload")
 	private String providerPayload;
 
-	@Column(name = "audio_file_name", length = 255)
-	private String audioFileName;
-
-	@Column(name = "audio_content_type", length = 100)
-	private String audioContentType;
-
-	@Column(name = "audio_size_bytes")
-	private Long audioSizeBytes;
-
-	@Lob
-	@Column(name = "audio_data")
-	private byte[] audioData;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "upload_file_id")
+	private UploadFile uploadFile;
 
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
@@ -56,19 +49,13 @@ public class AnswerSubmission {
 			String transcript,
 			String provider,
 			String providerPayload,
-			String audioFileName,
-			String audioContentType,
-			Long audioSizeBytes,
-			byte[] audioData,
+			UploadFile uploadFile,
 			Instant createdAt) {
 		this.result = result;
 		this.transcript = transcript;
 		this.provider = provider;
 		this.providerPayload = providerPayload;
-		this.audioFileName = audioFileName;
-		this.audioContentType = audioContentType;
-		this.audioSizeBytes = audioSizeBytes;
-		this.audioData = audioData;
+		this.uploadFile = uploadFile;
 		this.createdAt = createdAt == null ? Instant.now() : createdAt;
 	}
 
@@ -111,24 +98,11 @@ public class AnswerSubmission {
 		this.providerPayload = providerPayload;
 	}
 
-	public String getAudioFileName() {
-		return audioFileName;
-	}
-
-	public String getAudioContentType() {
-		return audioContentType;
-	}
-
-	public Long getAudioSizeBytes() {
-		return audioSizeBytes;
-	}
-
-	public byte[] getAudioData() {
-		return audioData;
+	public UploadFile getUploadFile() {
+		return uploadFile;
 	}
 
 	public Instant getCreatedAt() {
 		return createdAt;
 	}
 }
-

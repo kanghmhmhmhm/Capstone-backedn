@@ -8,6 +8,7 @@ public record LessonDetailResponse(
 		String sentence,
 		String phoneticSymbol,
 		String answer,
+		String animationData,
 		boolean completed
 ) {
 }

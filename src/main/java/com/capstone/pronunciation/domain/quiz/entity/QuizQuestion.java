@@ -25,6 +25,10 @@ public class QuizQuestion {
 	@Column(name = "phonetic_symbol", length = 50)
 	private String phoneticSymbol;
 
+	@Lob
+	@Column(name = "animation_data")
+	private String animationData;
+
 	@Column(nullable = false, columnDefinition = "integer default 1")
 	private int difficulty;
 
@@ -39,18 +43,29 @@ public class QuizQuestion {
 	}
 
 	public QuizQuestion(CurriculumStage stage, String sentence, String answer, String phoneticSymbol) {
-		this.stage = stage;
-		this.sentence = sentence;
-		this.answer = answer;
-		this.phoneticSymbol = phoneticSymbol;
-		this.difficulty = stage.getDifficulty();
+		this(stage, sentence, answer, phoneticSymbol, null, stage.getDifficulty());
+	}
+
+	public QuizQuestion(CurriculumStage stage, String sentence, String answer, String phoneticSymbol, String animationData) {
+		this(stage, sentence, answer, phoneticSymbol, animationData, stage.getDifficulty());
 	}
 
 	public QuizQuestion(CurriculumStage stage, String sentence, String answer, String phoneticSymbol, int difficulty) {
+		this(stage, sentence, answer, phoneticSymbol, null, difficulty);
+	}
+
+	public QuizQuestion(
+			CurriculumStage stage,
+			String sentence,
+			String answer,
+			String phoneticSymbol,
+			String animationData,
+			int difficulty) {
 		this.stage = stage;
 		this.sentence = sentence;
 		this.answer = answer;
 		this.phoneticSymbol = phoneticSymbol;
+		this.animationData = animationData;
 		this.difficulty = difficulty;
 	}
 
@@ -88,6 +103,14 @@ public class QuizQuestion {
 
 	public void setPhoneticSymbol(String phoneticSymbol) {
 		this.phoneticSymbol = phoneticSymbol;
+	}
+
+	public String getAnimationData() {
+		return animationData;
+	}
+
+	public void setAnimationData(String animationData) {
+		this.animationData = animationData;
 	}
 
 	public int getDifficulty() {

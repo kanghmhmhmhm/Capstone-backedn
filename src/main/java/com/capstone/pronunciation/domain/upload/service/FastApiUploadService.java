@@ -121,6 +121,7 @@ public class FastApiUploadService {
 
 		return new FastApiDispatchResponse(
 				uploadFile.getId(),
+				uploadFile.getObjectUrl(),
 				analyzePath,
 				statusCode.value(),
 				savedResult.resultId(),
@@ -165,10 +166,7 @@ public class FastApiUploadService {
 				transcript,
 				"FASTAPI",
 				providerPayload,
-				uploadFile.getOriginalFileName(),
-				uploadFile.getContentType(),
-				uploadFile.getSizeBytes(),
-				null,
+				uploadFile,
 				Instant.now()
 		));
 

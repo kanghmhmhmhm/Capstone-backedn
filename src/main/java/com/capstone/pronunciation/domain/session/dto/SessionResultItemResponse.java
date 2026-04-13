@@ -11,6 +11,8 @@ public record SessionResultItemResponse(
 		Integer voiceScore,
 		Integer visionScore,
 		String transcript,
+		Long uploadId,
+		String audioUrl,
 		Instant createdAt
 ) {
 }

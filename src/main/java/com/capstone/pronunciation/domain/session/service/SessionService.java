@@ -1,48 +1,89 @@
 package com.capstone.pronunciation.domain.session.service;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.capstone.pronunciation.domain.quiz.dto.QuestionDto;
+import com.capstone.pronunciation.domain.quiz.entity.QuizQuestion;
+import com.capstone.pronunciation.domain.quiz.repository.QuizQuestionRepository;
 import com.capstone.pronunciation.domain.session.dto.SessionDetailResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionEndResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionProgressResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionResultItemResponse;
-import com.capstone.pronunciation.domain.session.dto.SessionStartRequest;
 import com.capstone.pronunciation.domain.session.dto.SessionStartResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionSummaryResponse;
 import com.capstone.pronunciation.domain.session.entity.LearningSession;
+import com.capstone.pronunciation.domain.session.entity.SessionQuestion;
 import com.capstone.pronunciation.domain.session.entity.SessionResult;
 import com.capstone.pronunciation.domain.session.repository.LearningSessionRepository;
+import com.capstone.pronunciation.domain.session.repository.SessionQuestionRepository;
 import com.capstone.pronunciation.domain.session.repository.SessionResultRepository;
 import com.capstone.pronunciation.domain.user.entity.User;
 import com.capstone.pronunciation.domain.user.repository.UserRepository;
 
 @Service
 public class SessionService {
+	private static final String BASIC_PRONUNCIATION_STAGE = "BASIC_PRONUNCIATION";
+	private static final String WORD_STAGE = "WORD";
+	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
+	private static final int SESSION_QUESTION_COUNT = 5;
 
 	private final LearningSessionRepository learningSessionRepository;
 	private final SessionResultRepository sessionResultRepository;
 	private final UserRepository userRepository;
+	private final QuizQuestionRepository quizQuestionRepository;
+	private final SessionQuestionRepository sessionQuestionRepository;
 
 	public SessionService(
 			LearningSessionRepository learningSessionRepository,
 			SessionResultRepository sessionResultRepository,
-			UserRepository userRepository) {
+			UserRepository userRepository,
+			QuizQuestionRepository quizQuestionRepository,
+			SessionQuestionRepository sessionQuestionRepository) {
 		this.learningSessionRepository = learningSessionRepository;
 		this.sessionResultRepository = sessionResultRepository;
 		this.userRepository = userRepository;
+		this.quizQuestionRepository = quizQuestionRepository;
+		this.sessionQuestionRepository = sessionQuestionRepository;
 	}
 
 	@Transactional
 	public SessionStartResponse startSession(String email, Integer selectedLevel) {
 		User user = getUser(email);
 		validateSelectedLevel(selectedLevel);
-		Instant now = Instant.now();
-		LearningSession session = learningSessionRepository.save(new LearningSession(user, now, null, selectedLevel));
-		return new SessionStartResponse(session.getId(), session.getStartTime(), session.getSelectedLevel());
+		LearningSession session = learningSessionRepository
+				.findTopByUser_IdAndSelectedLevelAndEndTimeIsNullOrderByStartTimeDesc(user.getId(), selectedLevel)
+				.orElseGet(() -> createSessionWithQuestions(user, selectedLevel));
+
+		List<SessionQuestion> sessionQuestions = sessionQuestionRepository.findBySession_IdOrderByQuestionOrderAsc(session.getId());
+		Set<Long> solvedQuestionIds = sessionResultRepository.findQuestionIdsBySession(session.getId()).stream()
+				.collect(Collectors.toSet());
+		List<QuestionDto> questions = sessionQuestions.stream()
+				.map(sessionQuestion -> toQuestionDto(
+						sessionQuestion.getQuestion(),
+						solvedQuestionIds.contains(sessionQuestion.getQuestion().getId())))
+				.toList();
+		Long currentQuestionId = questions.stream()
+				.filter(question -> !Boolean.TRUE.equals(question.solved()))
+				.map(QuestionDto::questionId)
+				.findFirst()
+				.orElse(null);
+		boolean inProgress = !solvedQuestionIds.isEmpty() && currentQuestionId != null;
+
+		return new SessionStartResponse(
+				session.getId(),
+				session.getStartTime(),
+				session.getSelectedLevel(),
+				inProgress,
+				currentQuestionId,
+				questions
+		);
 	}
 
 	@Transactional
@@ -123,6 +164,8 @@ public class SessionService {
 				result.getPronunciationScore() == null ? null : result.getPronunciationScore().getVoiceScore(),
 				result.getPronunciationScore() == null ? null : result.getPronunciationScore().getVisionScore(),
 				result.getSubmission() == null ? null : result.getSubmission().getTranscript(),
+				result.getSubmission() == null || result.getSubmission().getUploadFile() == null ? null : result.getSubmission().getUploadFile().getId(),
+				result.getSubmission() == null || result.getSubmission().getUploadFile() == null ? null : result.getSubmission().getUploadFile().getObjectUrl(),
 				result.getCreatedAt()
 		);
 	}
@@ -138,6 +181,58 @@ public class SessionService {
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 	}
 
+	private List<QuizQuestion> pickSentenceQuestionsForLevel(Integer selectedLevel, int count) {
+		if (selectedLevel == null) {
+			throw new IllegalArgumentException("selectedLevel은 필수입니다.");
+		}
+
+		List<QuizQuestion> candidates = resolveQuestionsForLevel(selectedLevel);
+
+		if (candidates.isEmpty()) {
+			return List.of();
+		}
+
+		Collections.shuffle(candidates);
+		return candidates.stream()
+				.limit(count)
+				.toList();
+	}
+
+	private List<QuizQuestion> resolveQuestionsForLevel(Integer selectedLevel) {
+		if (selectedLevel == 1) {
+			return quizQuestionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(BASIC_PRONUNCIATION_STAGE);
+		}
+		if (selectedLevel == 2) {
+			return quizQuestionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(WORD_STAGE);
+		}
+		return quizQuestionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(sentenceStageName(selectedLevel));
+	}
+
+	private QuestionDto toQuestionDto(QuizQuestion question, boolean solved) {
+		String answer = question.getAnswer() != null && !question.getAnswer().isBlank()
+				? question.getAnswer()
+				: question.getSentence();
+		return new QuestionDto(
+				question.getId(),
+				question.getStage().getStageName(),
+				question.getDifficulty(),
+				question.getSentence(),
+				answer,
+				question.getAnimationData(),
+				solved
+		);
+	}
+
+	private LearningSession createSessionWithQuestions(User user, Integer selectedLevel) {
+		Instant now = Instant.now();
+		LearningSession session = learningSessionRepository.save(new LearningSession(user, now, null, selectedLevel));
+		List<QuizQuestion> questions = pickSentenceQuestionsForLevel(selectedLevel, SESSION_QUESTION_COUNT);
+		for (int i = 0; i < questions.size(); i++) {
+			sessionQuestionRepository.save(new SessionQuestion(session, questions.get(i), i + 1));
+		}
+		return session;
+	}
+
 	private LearningSession getOwnedSession(String email, Long sessionId) {
 		User user = getUser(email);
 		return learningSessionRepository.findByIdAndUser_Id(sessionId, user.getId())
@@ -148,8 +243,12 @@ public class SessionService {
 		if (selectedLevel == null) {
 			throw new IllegalArgumentException("selectedLevel은 필수입니다.");
 		}
-		if (selectedLevel < 1 || selectedLevel > 10) {
-			throw new IllegalArgumentException("selectedLevel은 1~10 사이여야 합니다.");
+		if (selectedLevel < 1 || selectedLevel > 15) {
+			throw new IllegalArgumentException("selectedLevel은 1~15 사이여야 합니다.");
 		}
+	}
+
+	private static String sentenceStageName(Integer selectedLevel) {
+		return SENTENCE_STAGE_PREFIX + selectedLevel;
 	}
 }

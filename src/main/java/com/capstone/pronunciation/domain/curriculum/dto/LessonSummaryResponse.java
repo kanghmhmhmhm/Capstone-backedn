@@ -7,6 +7,7 @@ public record LessonSummaryResponse(
 		int difficulty,
 		String sentence,
 		String phoneticSymbol,
+		String animationData,
 		boolean completed
 ) {
 }

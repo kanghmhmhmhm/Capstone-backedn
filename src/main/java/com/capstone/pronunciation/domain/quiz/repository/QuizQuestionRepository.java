@@ -12,6 +12,8 @@ public interface QuizQuestionRepository extends JpaRepository<QuizQuestion, Long
 
 	List<QuizQuestion> findByStage_IdOrderByIdAsc(Long stageId);
 
+	List<QuizQuestion> findByStage_StageNameIgnoreCaseOrderByIdAsc(String stageName);
+
 	List<QuizQuestion> findByStage_IdAndDifficultyBetweenOrderByIdAsc(Long stageId, int minDifficulty, int maxDifficulty);
 
 	Optional<QuizQuestion> findTopByStage_StageNameOrderByDifficultyDesc(String stageName);

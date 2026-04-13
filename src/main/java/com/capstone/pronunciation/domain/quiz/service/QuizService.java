@@ -16,16 +16,20 @@ import com.capstone.pronunciation.domain.quiz.repository.QuizQuestionRepository;
 import com.capstone.pronunciation.domain.session.entity.LearningSession;
 import com.capstone.pronunciation.domain.session.entity.AnswerSubmission;
 import com.capstone.pronunciation.domain.session.entity.PronunciationScore;
+import com.capstone.pronunciation.domain.session.entity.SessionQuestion;
 import com.capstone.pronunciation.domain.session.entity.SessionResult;
 import com.capstone.pronunciation.domain.session.repository.AnswerSubmissionRepository;
 import com.capstone.pronunciation.domain.session.repository.LearningSessionRepository;
 import com.capstone.pronunciation.domain.session.repository.PronunciationScoreRepository;
+import com.capstone.pronunciation.domain.session.repository.SessionQuestionRepository;
 import com.capstone.pronunciation.domain.session.repository.SessionResultRepository;
 import com.capstone.pronunciation.domain.user.entity.User;
 import com.capstone.pronunciation.domain.user.repository.UserRepository;
 
 @Service
 public class QuizService {
+	private static final String BASIC_PRONUNCIATION_STAGE = "BASIC_PRONUNCIATION";
+	private static final String WORD_STAGE = "WORD";
 	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
 	private static final int SESSION_QUESTION_COUNT = 5;
 	private static final int LEVEL_EVAL_WINDOW = 5;
@@ -38,6 +42,7 @@ public class QuizService {
 	private final SessionResultRepository sessionResultRepository;
 	private final PronunciationScoreRepository pronunciationScoreRepository;
 	private final AnswerSubmissionRepository answerSubmissionRepository;
+	private final SessionQuestionRepository sessionQuestionRepository;
 
 	public QuizService(
 			UserRepository userRepository,
@@ -45,13 +50,15 @@ public class QuizService {
 			LearningSessionRepository learningSessionRepository,
 			SessionResultRepository sessionResultRepository,
 			PronunciationScoreRepository pronunciationScoreRepository,
-			AnswerSubmissionRepository answerSubmissionRepository) {
+			AnswerSubmissionRepository answerSubmissionRepository,
+			SessionQuestionRepository sessionQuestionRepository) {
 		this.userRepository = userRepository;
 		this.questionRepository = questionRepository;
 		this.learningSessionRepository = learningSessionRepository;
 		this.sessionResultRepository = sessionResultRepository;
 		this.pronunciationScoreRepository = pronunciationScoreRepository;
 		this.answerSubmissionRepository = answerSubmissionRepository;
+		this.sessionQuestionRepository = sessionQuestionRepository;
 	}
 
 	@Transactional
@@ -62,23 +69,18 @@ public class QuizService {
 
 		Instant now = Instant.now();
 		LearningSession session = learningSessionRepository.save(new LearningSession(user, now, null, selectedLevel));
-		List<QuestionDto> questions = pickSentenceQuestionsForLevel(selectedLevel, SESSION_QUESTION_COUNT).stream()
-				.map(this::toQuestionDto)
+		List<QuizQuestion> selectedQuestions = pickSentenceQuestionsForLevel(selectedLevel, SESSION_QUESTION_COUNT);
+		for (int i = 0; i < selectedQuestions.size(); i++) {
+			sessionQuestionRepository.save(new SessionQuestion(session, selectedQuestions.get(i), i + 1));
+		}
+		List<QuestionDto> questions = selectedQuestions.stream()
+				.map(question -> toQuestionDto(question, false))
 				.toList();
 		return new StartSessionResponse(session.getId(), session.getStartTime(), session.getSelectedLevel(), questions);
 	}
 
 	private List<QuizQuestion> pickSentenceQuestionsForLevel(Integer selectedLevel, int count) {
-		if (selectedLevel == null) {
-			throw new IllegalArgumentException("selectedLevel은 필수입니다.");
-		}
-
-		List<QuizQuestion> candidates = questionRepository
-				.findByStage_StageNameStartingWithIgnoreCaseAndDifficultyBetweenOrderByIdAsc(
-						SENTENCE_STAGE_PREFIX,
-						selectedLevel,
-						selectedLevel);
-
+		List<QuizQuestion> candidates = listSentenceQuestionsForLevel(selectedLevel);
 		if (candidates.isEmpty()) {
 			return List.of();
 		}
@@ -87,6 +89,22 @@ public class QuizService {
 		return candidates.stream()
 				.limit(count)
 				.toList();
+	}
+
+	private List<QuizQuestion> listSentenceQuestionsForLevel(Integer selectedLevel) {
+		if (selectedLevel == null) {
+			throw new IllegalArgumentException("selectedLevel은 필수입니다.");
+		}
+
+		List<QuizQuestion> candidates;
+		if (selectedLevel == 1) {
+			candidates = questionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(BASIC_PRONUNCIATION_STAGE);
+		} else if (selectedLevel == 2) {
+			candidates = questionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(WORD_STAGE);
+		} else {
+			candidates = questionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(sentenceStageName(selectedLevel));
+		}
+		return candidates.isEmpty() ? List.of() : candidates;
 	}
 
 	@Transactional
@@ -115,14 +133,11 @@ public class QuizService {
 				"LOCAL",
 				null,
 				null,
-				null,
-				null,
-				null,
 				Instant.now()
 		));
 		updateUserLevelIfNeeded(user, q);
 
-		return new SubmitAnswerResponse(result.getId(), score, expected, transcript);
+		return new SubmitAnswerResponse(result.getId(), score, expected, transcript, null, null);
 	}
 
 	@Transactional
@@ -158,15 +173,12 @@ public class QuizService {
 				"OPENAI",
 				null,
 				null,
-				null,
-				null,
-				null,
 				Instant.now()
 		));
 		updateUserLevelIfNeeded(user, q);
 
 		String expected = q.getAnswer() != null && !q.getAnswer().isBlank() ? q.getAnswer() : q.getSentence();
-		return new SubmitAnswerResponse(result.getId(), finalScore, expected, request.transcript());
+		return new SubmitAnswerResponse(result.getId(), finalScore, expected, request.transcript(), null, null);
 	}
 
 	@Transactional
@@ -203,16 +215,13 @@ public class QuizService {
 				transcript,
 				"OPENAI",
 				null,
-				audioFileName,
-				audioContentType,
-				audioSizeBytes,
-				audioData,
+				null,
 				Instant.now()
 		));
 		updateUserLevelIfNeeded(user, q);
 
 		String expected = q.getAnswer() != null && !q.getAnswer().isBlank() ? q.getAnswer() : q.getSentence();
-		return new SubmitAnswerResponse(result.getId(), finalScore, expected, transcript);
+		return new SubmitAnswerResponse(result.getId(), finalScore, expected, transcript, null, null);
 	}
 
 	private void updateUserLevelIfNeeded(User user, QuizQuestion question) {
@@ -246,7 +255,7 @@ public class QuizService {
 		}
 	}
 
-	private QuestionDto toQuestionDto(QuizQuestion question) {
+	private QuestionDto toQuestionDto(QuizQuestion question, boolean solved) {
 		String answer = question.getAnswer() != null && !question.getAnswer().isBlank()
 				? question.getAnswer()
 				: question.getSentence();
@@ -255,7 +264,9 @@ public class QuizService {
 				question.getStage().getStageName(),
 				question.getDifficulty(),
 				question.getSentence(),
-				answer
+				answer,
+				question.getAnimationData(),
+				solved
 		);
 	}
 
@@ -271,9 +282,13 @@ public class QuizService {
 		if (selectedLevel == null) {
 			throw new IllegalArgumentException("selectedLevel은 필수입니다.");
 		}
-		if (selectedLevel < 1 || selectedLevel > 10) {
-			throw new IllegalArgumentException("selectedLevel은 1~10 사이여야 합니다.");
+		if (selectedLevel < 1 || selectedLevel > 15) {
+			throw new IllegalArgumentException("selectedLevel은 1~15 사이여야 합니다.");
 		}
+	}
+
+	private static String sentenceStageName(Integer selectedLevel) {
+		return SENTENCE_STAGE_PREFIX + selectedLevel;
 	}
 
 	private static int clampScore(Integer score) {

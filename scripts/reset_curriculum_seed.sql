@@ -26,155 +26,87 @@ ALTER TABLE curriculum_stages AUTO_INCREMENT = 1;
 SET FOREIGN_KEY_CHECKS = 1;
 
 INSERT INTO curriculum_stages (stage_name, stage_order, difficulty) VALUES
-  ('ALPHABET', 1, 1),
-  ('BASIC_PRONUNCIATION', 2, 2),
-  ('WORD', 3, 3),
-  ('Sentence Lv1', 4, 1),
-  ('Sentence Lv2', 5, 2),
-  ('Sentence Lv3', 6, 3),
-  ('Sentence Lv4', 7, 4),
-  ('Sentence Lv5', 8, 5);
+  ('BASIC_PRONUNCIATION', 1, 1),
+  ('WORD', 2, 2),
+  ('Sentence Lv3', 3, 3),
+  ('Sentence Lv4', 4, 4),
+  ('Sentence Lv5', 5, 5),
+  ('Sentence Lv6', 6, 6),
+  ('Sentence Lv7', 7, 7),
+  ('Sentence Lv8', 8, 8),
+  ('Sentence Lv9', 9, 9),
+  ('Sentence Lv10', 10, 10),
+  ('Sentence Lv11', 11, 11),
+  ('Sentence Lv12', 12, 12),
+  ('Sentence Lv13', 13, 13),
+  ('Sentence Lv14', 14, 14),
+  ('Sentence Lv15', 15, 15);
 
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'A', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'sh', NULL, '/ʃ/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'B', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'th', NULL, '/θ/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'C', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'ch', NULL, '/tʃ/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'D', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'ph', NULL, '/f/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'E', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'wh', NULL, '/w/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'F', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'ck', NULL, '/k/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'G', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'ng', NULL, '/ŋ/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'H', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'qu', NULL, '/kw/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'I', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'wr', NULL, '/ɹ/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'J', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'kn', NULL, '/n/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'K', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'gn', NULL, '/n/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'L', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'M', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'N', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'O', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'P', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'Q', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'R', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'S', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'T', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'U', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'V', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'W', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'X', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'Y', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'Z', NULL, NULL, 1 FROM curriculum_stages WHERE stage_name = 'ALPHABET';
+SELECT id, 'mb', NULL, '/m/', 1 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
 
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'sh', NULL, '/ʃ/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
+SELECT id, 'apples', NULL, NULL, 2 FROM curriculum_stages WHERE stage_name = 'WORD';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'th', NULL, '/θ/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
+SELECT id, 'coffee', NULL, NULL, 2 FROM curriculum_stages WHERE stage_name = 'WORD';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'ch', NULL, '/tʃ/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
+SELECT id, 'water', NULL, NULL, 2 FROM curriculum_stages WHERE stage_name = 'WORD';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'ph', NULL, '/f/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
+SELECT id, 'book', NULL, NULL, 2 FROM curriculum_stages WHERE stage_name = 'WORD';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'wh', NULL, '/w/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'ck', NULL, '/k/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'ng', NULL, '/ŋ/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'qu', NULL, '/kw/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'wr', NULL, '/ɹ/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'kn', NULL, '/n/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'gn', NULL, '/n/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'mb', NULL, '/m/', 2 FROM curriculum_stages WHERE stage_name = 'BASIC_PRONUNCIATION';
+SELECT id, 'school', NULL, NULL, 2 FROM curriculum_stages WHERE stage_name = 'WORD';
 
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'apples', NULL, NULL, 3 FROM curriculum_stages WHERE stage_name = 'WORD';
+SELECT id, 'I see a ____.', 'cat', '/k/', 3 FROM curriculum_stages WHERE stage_name = 'Sentence Lv3';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'coffee', NULL, NULL, 3 FROM curriculum_stages WHERE stage_name = 'WORD';
+SELECT id, 'The ____ is hot.', 'sun', '/s/', 3 FROM curriculum_stages WHERE stage_name = 'Sentence Lv3';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'water', NULL, NULL, 3 FROM curriculum_stages WHERE stage_name = 'WORD';
+SELECT id, 'I have a ____.', 'book', '/b/', 3 FROM curriculum_stages WHERE stage_name = 'Sentence Lv3';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'book', NULL, NULL, 3 FROM curriculum_stages WHERE stage_name = 'WORD';
+SELECT id, 'She likes ____.', 'milk', '/m/', 3 FROM curriculum_stages WHERE stage_name = 'Sentence Lv3';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'school', NULL, NULL, 3 FROM curriculum_stages WHERE stage_name = 'WORD';
+SELECT id, 'We ____ outside.', 'play', '/p/', 3 FROM curriculum_stages WHERE stage_name = 'Sentence Lv3';
 
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'I see a ____.', 'cat', '/k/', 1 FROM curriculum_stages WHERE stage_name = 'Sentence Lv1';
+SELECT id, 'The ____ is in the dish.', 'fish', '/f/', 4 FROM curriculum_stages WHERE stage_name = 'Sentence Lv4';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'The ____ is hot.', 'sun', '/s/', 1 FROM curriculum_stages WHERE stage_name = 'Sentence Lv1';
+SELECT id, 'I ____ my teeth every day.', 'brush', '/br/', 4 FROM curriculum_stages WHERE stage_name = 'Sentence Lv4';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'I have a ____.', 'book', '/b/', 1 FROM curriculum_stages WHERE stage_name = 'Sentence Lv1';
+SELECT id, 'The ____ is on the sea.', 'ship', '/ʃ/', 4 FROM curriculum_stages WHERE stage_name = 'Sentence Lv4';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'She likes ____.', 'milk', '/m/', 1 FROM curriculum_stages WHERE stage_name = 'Sentence Lv1';
+SELECT id, 'My ____ is small.', 'chin', '/tʃ/', 4 FROM curriculum_stages WHERE stage_name = 'Sentence Lv4';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'We ____ outside.', 'play', '/p/', 1 FROM curriculum_stages WHERE stage_name = 'Sentence Lv1';
+SELECT id, 'The ____ is very fast.', 'van', '/v/', 4 FROM curriculum_stages WHERE stage_name = 'Sentence Lv4';
 
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'The ____ is in the dish.', 'fish', '/f/', 2 FROM curriculum_stages WHERE stage_name = 'Sentence Lv2';
+SELECT id, 'I ____ this is my thumb.', 'think', '/θ/', 5 FROM curriculum_stages WHERE stage_name = 'Sentence Lv5';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'I ____ my teeth every day.', 'brush', '/br/', 2 FROM curriculum_stages WHERE stage_name = 'Sentence Lv2';
+SELECT id, '____ is my brother.', 'This', '/ð/', 5 FROM curriculum_stages WHERE stage_name = 'Sentence Lv5';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'The ____ is on the sea.', 'ship', '/ʃ/', 2 FROM curriculum_stages WHERE stage_name = 'Sentence Lv2';
+SELECT id, 'She ____ a happy song.', 'sings', '/s/', 5 FROM curriculum_stages WHERE stage_name = 'Sentence Lv5';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'My ____ is small.', 'chin', '/tʃ/', 2 FROM curriculum_stages WHERE stage_name = 'Sentence Lv2';
+SELECT id, 'The ____ is in the zoo.', 'zebra', '/z/', 5 FROM curriculum_stages WHERE stage_name = 'Sentence Lv5';
 INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'The ____ is very fast.', 'van', '/v/', 2 FROM curriculum_stages WHERE stage_name = 'Sentence Lv2';
-
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'I ____ this is my thumb.', 'think', '/θ/', 3 FROM curriculum_stages WHERE stage_name = 'Sentence Lv3';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, '____ is my brother.', 'This', '/ð/', 3 FROM curriculum_stages WHERE stage_name = 'Sentence Lv3';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'She ____ a happy song.', 'sings', '/s/', 3 FROM curriculum_stages WHERE stage_name = 'Sentence Lv3';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'The ____ is in the zoo.', 'zebra', '/z/', 3 FROM curriculum_stages WHERE stage_name = 'Sentence Lv3';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'He ____ over the box.', 'jumps', '/dʒ/', 3 FROM curriculum_stages WHERE stage_name = 'Sentence Lv3';
-
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'The girl heard the ____ early.', 'bird', '/ɜːr/', 4 FROM curriculum_stages WHERE stage_name = 'Sentence Lv4';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'I ____ to school with my friends.', 'walked', '/t/', 4 FROM curriculum_stages WHERE stage_name = 'Sentence Lv4';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'She ____ the room yesterday.', 'cleaned', '/d/', 4 FROM curriculum_stages WHERE stage_name = 'Sentence Lv4';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'We ____ to watch a movie.', 'wanted', '/ɪd/', 4 FROM curriculum_stages WHERE stage_name = 'Sentence Lv4';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'The ____ shines in the night sky.', 'light', '/aɪ/', 4 FROM curriculum_stages WHERE stage_name = 'Sentence Lv4';
-
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'I ____ the weather was smooth.', 'thought', '/θ/', 5 FROM curriculum_stages WHERE stage_name = 'Sentence Lv5';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'The ____ writes about culture.', 'author', '/ɔː/', 5 FROM curriculum_stages WHERE stage_name = 'Sentence Lv5';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'She usually ____ the treasure.', 'measures', '/ʒ/', 5 FROM curriculum_stages WHERE stage_name = 'Sentence Lv5';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'The ____ runs quietly.', 'squirrel', '/skw/', 5 FROM curriculum_stages WHERE stage_name = 'Sentence Lv5';
-INSERT INTO quiz_questions (stage_id, sentence, answer, phonetic_symbol, difficulty)
-SELECT id, 'He succeeded ____ great effort.', 'through', '/θr/', 5 FROM curriculum_stages WHERE stage_name = 'Sentence Lv5';
+SELECT id, 'He ____ over the box.', 'jumps', '/dʒ/', 5 FROM curriculum_stages WHERE stage_name = 'Sentence Lv5';

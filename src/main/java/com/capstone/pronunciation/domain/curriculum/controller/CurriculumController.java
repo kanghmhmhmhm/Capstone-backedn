@@ -1,14 +1,11 @@
 package com.capstone.pronunciation.domain.curriculum.controller;
 
 import java.util.List;
-import java.util.Locale;
-
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.capstone.pronunciation.domain.curriculum.dto.LessonDetailResponse;
@@ -16,8 +13,12 @@ import com.capstone.pronunciation.domain.curriculum.dto.LessonSummaryResponse;
 import com.capstone.pronunciation.domain.curriculum.dto.StageProgressResponse;
 import com.capstone.pronunciation.domain.curriculum.service.CurriculumService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @RequestMapping("/api/curriculum")
 @RestController
+@Tag(name = "Curriculum", description = "레벨별 커리큘럼, 레슨 목록, 완료 처리 API")
 public class CurriculumController {
 	private final CurriculumService curriculumService;
 
@@ -26,69 +27,54 @@ public class CurriculumController {
 	}
 
 	@GetMapping("/stages")
+	@Operation(summary = "기존 stage 목록 조회", description = "기존 호환성을 위한 stage 목록 조회 API입니다. 신규 클라이언트는 /levels 사용을 권장합니다.")
 	public List<StageProgressResponse> stages(Authentication authentication) {
 		return curriculumService.stages(authentication.getName());
 	}
 
-	@GetMapping("/lessons")
-	public List<LessonSummaryResponse> lessonsByStage(
-			Authentication authentication,
-			@RequestParam String stage) {
-		return curriculumService.lessonsByStageName(authentication.getName(), stage.trim().toUpperCase(Locale.ROOT));
+	@GetMapping("/levels")
+	@Operation(summary = "레벨 목록 조회", description = "레벨별 잠금 상태, 완료 여부, 진행도를 조회합니다.")
+	public List<StageProgressResponse> levels(Authentication authentication) {
+		return curriculumService.stages(authentication.getName());
 	}
 
-	@GetMapping("/{category}/lessons")
-	public List<LessonSummaryResponse> lessonsByCategory(
+	@GetMapping("/levels/{level}/lessons")
+	@Operation(summary = "레벨별 레슨 조회", description = "선택한 레벨에 속한 레슨(문제) 목록과 완료 여부를 조회합니다.")
+	public List<LessonSummaryResponse> lessonsByLevel(
 			Authentication authentication,
-			@PathVariable String category) {
-		return curriculumService.lessonsByStageName(authentication.getName(), toStageName(category));
+			@PathVariable Integer level) {
+		return curriculumService.lessonsByStageName(authentication.getName(), toStageName(level));
 	}
 
 	@GetMapping("/lessons/{lessonId}")
+	@Operation(summary = "레슨 상세 조회", description = "특정 레슨의 상세 문제 정보와 완료 여부를 조회합니다.")
 	public LessonDetailResponse lessonDetail(
 			Authentication authentication,
 			@PathVariable Long lessonId) {
 		return curriculumService.questionDetail(authentication.getName(), lessonId);
 	}
 
-	@GetMapping("/{category}/lessons/{lessonId}")
-	public LessonDetailResponse lessonDetailByCategory(
-			Authentication authentication,
-			@PathVariable String category,
-			@PathVariable Long lessonId) {
-		// category는 URL 가독성용. 실제 권한/해금은 lessonId로 검증.
-		toStageName(category);
-		return curriculumService.questionDetail(authentication.getName(), lessonId);
-	}
-
 	@PostMapping("/lessons/{lessonId}/complete")
+	@Operation(summary = "레슨 완료 처리", description = "특정 레슨을 완료 처리하고 진행도를 반영합니다.")
 	public void completeLesson(
 			Authentication authentication,
 			@PathVariable Long lessonId) {
 		curriculumService.completeQuestion(authentication.getName(), lessonId, 100);
 	}
 
-	@PostMapping("/{category}/lessons/{lessonId}/complete")
-	public void completeLessonByCategory(
-			Authentication authentication,
-			@PathVariable String category,
-			@PathVariable Long lessonId) {
-		toStageName(category);
-		curriculumService.completeQuestion(authentication.getName(), lessonId, 100);
-	}
-
-	private static String toStageName(String category) {
-		if (category == null) {
-			throw new IllegalArgumentException("category는 필수입니다.");
+	private static String toStageName(Integer level) {
+		if (level == null) {
+			throw new IllegalArgumentException("level은 필수입니다.");
 		}
-
-		String normalized = category.trim().toLowerCase(Locale.ROOT);
-		return switch (normalized) {
-			case "alphabet", "alphabets", "alpha" -> "ALPHABET";
-			case "basic-pronunciation", "basic_pronunciation", "basicpronunciation", "basic" -> "BASIC_PRONUNCIATION";
-			case "word", "words" -> "WORD";
-			case "sentence", "sentences" -> "SENTENCE";
-			default -> throw new IllegalArgumentException("지원하지 않는 category입니다: " + category);
+		return switch (level) {
+			case 1 -> "BASIC_PRONUNCIATION";
+			case 2 -> "WORD";
+			default -> {
+				if (level < 3 || level > 15) {
+					throw new IllegalArgumentException("지원하지 않는 level입니다: " + level);
+				}
+				yield "Sentence Lv" + level;
+			}
 		};
 	}
 }

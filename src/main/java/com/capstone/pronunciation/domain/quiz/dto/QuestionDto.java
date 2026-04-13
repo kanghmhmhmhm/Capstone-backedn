@@ -5,6 +5,8 @@ public record QuestionDto(
 		String stageName,
 		Integer difficulty,
 		String sentence,
-		String answer
+		String answer,
+		String animationData,
+		Boolean solved
 ) {
 }

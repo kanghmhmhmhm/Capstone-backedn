@@ -2,7 +2,9 @@ package com.capstone.pronunciation.domain.curriculum.service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ import com.capstone.pronunciation.domain.user.repository.UserRepository;
 @Service
 public class CurriculumService {
 	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
+	private static final String SENTENCE_STAGE_NAME = "sentence";
 
 	private final CurriculumStageRepository stageRepository;
 	private final QuizQuestionRepository questionRepository;
@@ -55,12 +58,13 @@ public class CurriculumService {
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
 		List<CurriculumStage> stages = stageRepository.findAllByOrderByOrderAsc();
+		Map<Long, Boolean> unlockedByStageId = buildUnlockedStageMap(user.getId(), stages);
 		List<StageProgressResponse> responses = new ArrayList<>(stages.size());
 
 		for (CurriculumStage stage : stages) {
 			long total = questionRepository.countByStage_Id(stage.getId());
 			long completed = sessionResultRepository.countDistinctQuestionsByUserAndStage(user.getId(), stage.getId());
-			boolean unlocked = true;
+			boolean unlocked = unlockedByStageId.getOrDefault(stage.getId(), true);
 			boolean stageCompleted = total > 0 && completed >= total;
 
 			responses.add(new StageProgressResponse(
@@ -82,10 +86,20 @@ public class CurriculumService {
 	public List<LessonSummaryResponse> lessonsByStageName(String email, String stageName) {
 		User user = userRepository.findByEmail(email)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+		List<CurriculumStage> stages = stageRepository.findAllByOrderByOrderAsc();
+		Map<Long, Boolean> unlockedByStageId = buildUnlockedStageMap(user.getId(), stages);
 
 		List<QuizQuestion> questions;
-		if (isSentenceStage(stageName)) {
-			questions = questionRepository.findByStage_StageNameStartingWithIgnoreCaseOrderByIdAsc(SENTENCE_STAGE_PREFIX);
+		if (isSentenceCategory(stageName)) {
+			questions = questionRepository.findByStage_StageNameStartingWithIgnoreCaseOrderByIdAsc(SENTENCE_STAGE_PREFIX)
+					.stream()
+					.filter(question -> unlockedByStageId.getOrDefault(question.getStage().getId(), true))
+					.toList();
+		} else if (isSentenceStage(stageName)) {
+			CurriculumStage stage = stageRepository.findByStageNameIgnoreCase(stageName)
+					.orElseThrow(() -> new IllegalArgumentException("단계를 찾을 수 없습니다."));
+			ensureUnlocked(stage, unlockedByStageId);
+			questions = questionRepository.findByStage_IdOrderByIdAsc(stage.getId());
 		} else {
 			CurriculumStage stage = stageRepository.findByStageNameIgnoreCase(stageName)
 					.orElseThrow(() -> new IllegalArgumentException("단계를 찾을 수 없습니다."));
@@ -102,6 +116,7 @@ public class CurriculumService {
 					q.getDifficulty(),
 					q.getSentence(),
 					q.getPhoneticSymbol(),
+					q.getAnimationData(),
 					completed
 			));
 		}
@@ -115,6 +130,9 @@ public class CurriculumService {
 
 		QuizQuestion q = questionRepository.findById(questionId)
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
+		ensureUnlocked(q.getStage(), buildUnlockedStageMap(
+				user.getId(),
+				stageRepository.findAllByOrderByOrderAsc()));
 
 		boolean completed = sessionResultRepository.existsByUserAndQuestion(user.getId(), questionId);
 		return new LessonDetailResponse(
@@ -125,6 +143,7 @@ public class CurriculumService {
 				q.getSentence(),
 				q.getPhoneticSymbol(),
 				q.getAnswer(),
+				q.getAnimationData(),
 				completed
 		);
 	}
@@ -136,6 +155,9 @@ public class CurriculumService {
 
 		QuizQuestion q = questionRepository.findById(questionId)
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
+		ensureUnlocked(q.getStage(), buildUnlockedStageMap(
+				user.getId(),
+				stageRepository.findAllByOrderByOrderAsc()));
 
 		if (sessionResultRepository.existsByUserAndQuestion(user.getId(), questionId)) {
 			return;
@@ -165,5 +187,35 @@ public class CurriculumService {
 		}
 		String normalized = stageName.trim().toLowerCase();
 		return normalized.equals("sentence") || normalized.startsWith("sentence lv");
+	}
+
+	private static boolean isSentenceCategory(String stageName) {
+		return stageName != null && SENTENCE_STAGE_NAME.equals(stageName.trim().toLowerCase());
+	}
+
+	private Map<Long, Boolean> buildUnlockedStageMap(Long userId, List<CurriculumStage> stages) {
+		Map<Long, Boolean> unlockedByStageId = new HashMap<>();
+		boolean previousStageCompleted = true;
+		boolean firstStage = true;
+
+		for (CurriculumStage stage : stages) {
+			long total = questionRepository.countByStage_Id(stage.getId());
+			long completed = sessionResultRepository.countDistinctQuestionsByUserAndStage(userId, stage.getId());
+			boolean stageCompleted = total > 0 && completed >= total;
+
+			boolean unlocked = firstStage || previousStageCompleted;
+			unlockedByStageId.put(stage.getId(), unlocked);
+
+			firstStage = false;
+			previousStageCompleted = stageCompleted;
+		}
+
+		return unlockedByStageId;
+	}
+
+	private void ensureUnlocked(CurriculumStage stage, Map<Long, Boolean> unlockedByStageId) {
+		if (!unlockedByStageId.getOrDefault(stage.getId(), true)) {
+			throw new IllegalArgumentException("잠금 해제되지 않은 단계입니다.");
+		}
 	}
 }
