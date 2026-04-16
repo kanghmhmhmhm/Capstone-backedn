@@ -21,7 +21,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RequestMapping("/api/me")
 @RestController
-@Tag(name = "Me", description = "내 정보 조회 및 계정 관리 API")
+@Tag(name = "Frontend - Me", description = "프론트 실사용 API: 내 정보 조회, 마이페이지 요약, 수정, 로그아웃, 탈퇴를 담당합니다.")
 public class UserController {
 	private final UserService userService;
 
@@ -30,19 +30,28 @@ public class UserController {
 	}
 
 	@GetMapping
-	@Operation(summary = "내 정보 조회", description = "현재 로그인한 사용자의 프로필 정보를 조회합니다.")
+	@Operation(
+			summary = "[프론트 사용] 내 정보 조회",
+			description = "현재 로그인한 사용자의 프로필 정보를 조회합니다."
+	)
 	public UserProfileResponse me(Authentication authentication) {
 		return userService.me(authentication.getName());
 	}
 
 	@GetMapping("/summary")
-	@Operation(summary = "마이페이지 요약 조회", description = "학습 진행 현황과 마이페이지 요약 정보를 조회합니다.")
+	@Operation(
+			summary = "[프론트 사용] 마이페이지 요약 조회",
+			description = "학습 진행 현황과 마이페이지 요약 정보를 조회합니다."
+	)
 	public MyPageSummaryResponse myPageSummary(Authentication authentication) {
 		return userService.myPageSummary(authentication.getName());
 	}
 
 	@PatchMapping
-	@Operation(summary = "내 정보 수정", description = "현재 로그인한 사용자의 프로필 정보를 수정합니다.")
+	@Operation(
+			summary = "[프론트 사용] 내 정보 수정",
+			description = "현재 로그인한 사용자의 프로필 정보를 수정합니다."
+	)
 	public UserProfileResponse updateProfile(
 			Authentication authentication,
 			@RequestBody UpdateProfileRequest request) {
@@ -50,13 +59,19 @@ public class UserController {
 	}
 
 	@PostMapping("/logout")
-	@Operation(summary = "로그아웃", description = "현재 사용자 세션을 로그아웃 처리합니다.")
+	@Operation(
+			summary = "[프론트 사용] 로그아웃",
+			description = "현재 사용자 세션을 로그아웃 처리합니다."
+	)
 	public MessageResponse logout() {
 		return userService.logout();
 	}
 
 	@DeleteMapping
-	@Operation(summary = "회원 탈퇴", description = "현재 로그인한 사용자의 계정을 삭제합니다.")
+	@Operation(
+			summary = "[프론트 사용] 회원 탈퇴",
+			description = "현재 로그인한 사용자의 계정을 삭제합니다."
+	)
 	public MessageResponse deleteAccount(
 			Authentication authentication,
 			@RequestBody DeleteAccountRequest request) {

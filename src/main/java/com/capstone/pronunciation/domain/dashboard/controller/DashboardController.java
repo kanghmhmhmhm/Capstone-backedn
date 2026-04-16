@@ -13,7 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RequestMapping("/api/dashboard")
 @RestController
-@Tag(name = "Dashboard", description = "대시보드 요약 정보 조회 API")
+@Tag(name = "Frontend - Dashboard", description = "프론트 실사용 API: 대시보드 요약 정보 조회를 담당합니다.")
 public class DashboardController {
 
 	private final DashboardService dashboardService;
@@ -23,7 +23,10 @@ public class DashboardController {
 	}
 
 	@GetMapping("/summary")
-	@Operation(summary = "대시보드 요약 조회", description = "현재 사용자의 학습 현황과 요약 정보를 조회합니다.")
+	@Operation(
+			summary = "[프론트 사용] 대시보드 요약 조회",
+			description = "현재 사용자의 학습 현황, 평균 점수, 단계별 완료율, 취약 발음 요약 정보를 조회합니다."
+	)
 	public DashboardSummaryResponse summary(Authentication authentication) {
 		return dashboardService.summary(authentication.getName());
 	}

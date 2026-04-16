@@ -57,9 +57,7 @@ public class SessionService {
 	public SessionStartResponse startSession(String email, Integer selectedLevel) {
 		User user = getUser(email);
 		validateSelectedLevel(selectedLevel);
-		LearningSession session = learningSessionRepository
-				.findTopByUser_IdAndSelectedLevelAndEndTimeIsNullOrderByStartTimeDesc(user.getId(), selectedLevel)
-				.orElseGet(() -> createSessionWithQuestions(user, selectedLevel));
+		LearningSession session = resolveActiveSession(user, selectedLevel);
 
 		List<SessionQuestion> sessionQuestions = sessionQuestionRepository.findBySession_IdOrderByQuestionOrderAsc(session.getId());
 		Set<Long> solvedQuestionIds = sessionResultRepository.findQuestionIdsBySession(session.getId()).stream()
@@ -231,6 +229,50 @@ public class SessionService {
 			sessionQuestionRepository.save(new SessionQuestion(session, questions.get(i), i + 1));
 		}
 		return session;
+	}
+
+	private LearningSession resolveActiveSession(User user, Integer selectedLevel) {
+		List<LearningSession> openSessions = learningSessionRepository
+				.findByUser_IdAndSelectedLevelAndEndTimeIsNullOrderByStartTimeDesc(user.getId(), selectedLevel);
+
+		if (openSessions.isEmpty()) {
+			return createSessionWithQuestions(user, selectedLevel);
+		}
+
+		LearningSession reusableSession = null;
+		for (LearningSession candidate : openSessions) {
+			boolean hasAssignedQuestions = !sessionQuestionRepository
+					.findBySession_IdOrderByQuestionOrderAsc(candidate.getId())
+					.isEmpty();
+			if (hasAssignedQuestions) {
+				reusableSession = candidate;
+				break;
+			}
+		}
+
+		if (reusableSession == null) {
+			closeOpenSessions(openSessions);
+			return createSessionWithQuestions(user, selectedLevel);
+		}
+
+		closeOtherOpenSessions(openSessions, reusableSession.getId());
+		return reusableSession;
+	}
+
+	private void closeOpenSessions(List<LearningSession> sessions) {
+		Instant now = Instant.now();
+		for (LearningSession session : sessions) {
+			session.setEndTime(now);
+		}
+	}
+
+	private void closeOtherOpenSessions(List<LearningSession> sessions, Long keepSessionId) {
+		Instant now = Instant.now();
+		for (LearningSession session : sessions) {
+			if (!session.getId().equals(keepSessionId)) {
+				session.setEndTime(now);
+			}
+		}
 	}
 
 	private LearningSession getOwnedSession(String email, Long sessionId) {

@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RequestMapping("/api/auth")
 @RestController
-@Tag(name = "Auth", description = "회원가입 및 로그인 API")
+@Tag(name = "Frontend - Auth", description = "프론트 실사용 API: 회원가입과 로그인을 담당합니다.")
 public class AuthController {
 
 	private final UserService userService;
@@ -25,13 +25,19 @@ public class AuthController {
 	}
 
 	@PostMapping("/signup")
-	@Operation(summary = "회원가입", description = "이메일, 비밀번호, 이름으로 사용자 계정을 생성하고 인증 정보를 반환합니다.")
+	@Operation(
+			summary = "[프론트 사용] 회원가입",
+			description = "이메일, 비밀번호, 이름으로 사용자 계정을 생성하고 인증 정보를 반환합니다."
+	)
 	public AuthResponse signup(@RequestBody SignupRequest request) {
 		return userService.signup(request);
 	}
 
 	@PostMapping("/login")
-	@Operation(summary = "로그인", description = "이메일과 비밀번호를 검증한 뒤 JWT 인증 정보를 반환합니다.")
+	@Operation(
+			summary = "[프론트 사용] 로그인",
+			description = "이메일과 비밀번호를 검증한 뒤 JWT 인증 정보를 반환합니다."
+	)
 	public AuthResponse login(@RequestBody LoginRequest request) {
 		return userService.login(request);
 	}

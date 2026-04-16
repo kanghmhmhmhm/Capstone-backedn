@@ -3,8 +3,8 @@ package com.capstone.pronunciation.domain.upload.controller;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.time.LocalDate;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.UUID;
 
@@ -21,13 +21,10 @@ import org.springframework.web.multipart.MultipartFile;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.capstone.pronunciation.domain.upload.dto.FastApiDispatchResponse;
 import com.capstone.pronunciation.domain.upload.dto.PresignedUrlResponse;
-import com.capstone.pronunciation.domain.upload.dto.SendToFastApiRequest;
 import com.capstone.pronunciation.domain.upload.dto.UploadResponse;
 import com.capstone.pronunciation.domain.upload.entity.UploadFile;
 import com.capstone.pronunciation.domain.upload.repository.UploadFileRepository;
-import com.capstone.pronunciation.domain.upload.service.FastApiUploadService;
 import com.capstone.pronunciation.domain.user.entity.User;
 import com.capstone.pronunciation.domain.user.repository.UserRepository;
 import com.capstone.pronunciation.global.config.S3Config;
@@ -37,8 +34,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RequestMapping("/api/media/audio")
 @RestController
-@Tag(name = "Audio Media", description = "오디오 업로드, presigned URL, AI 분석 요청 API")
-public class UploadController {
+@Tag(name = "Frontend - Audio Upload", description = "프론트 실사용 API: 프론트엔드가 오디오를 업로드하고 presigned URL을 조회하는 단계입니다. AI 서버 호출 전 단계입니다.")
+public class AudioUploadController {
 
 	private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
 	private static final long PRESIGNED_URL_EXPIRES_IN_SECONDS = 600;
@@ -47,23 +44,23 @@ public class UploadController {
 	private final S3Config s3Config;
 	private final UserRepository userRepository;
 	private final UploadFileRepository uploadFileRepository;
-	private final FastApiUploadService fastApiUploadService;
 
-	public UploadController(
+	public AudioUploadController(
 			AmazonS3 amazonS3,
 			S3Config s3Config,
 			UserRepository userRepository,
-			UploadFileRepository uploadFileRepository,
-			FastApiUploadService fastApiUploadService) {
+			UploadFileRepository uploadFileRepository) {
 		this.amazonS3 = amazonS3;
 		this.s3Config = s3Config;
 		this.userRepository = userRepository;
 		this.uploadFileRepository = uploadFileRepository;
-		this.fastApiUploadService = fastApiUploadService;
 	}
 
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	@Operation(summary = "오디오 업로드", description = "mp3 오디오 파일을 업로드하고 업로드 식별자와 파일 메타데이터를 반환합니다.")
+	@Operation(
+			summary = "[프론트 사용] 오디오 업로드",
+			description = "연동 대상: Frontend. mp3 오디오 파일을 업로드하고 uploadId, 파일 URL, 메타데이터를 반환합니다. 이후 /api/media/audio/{uploadId}/analyze 호출의 입력값으로 사용됩니다."
+	)
 	public UploadResponse uploadAudio(
 			Authentication authentication,
 			@RequestParam("file") MultipartFile file) throws IOException {
@@ -114,7 +111,10 @@ public class UploadController {
 	}
 
 	@GetMapping("/{uploadId}/presigned-url")
-	@Operation(summary = "오디오 presigned URL 조회", description = "업로드된 오디오 파일에 접근할 수 있는 presigned URL을 발급합니다.")
+	@Operation(
+			summary = "[프론트 사용] 오디오 presigned URL 조회",
+			description = "연동 대상: Frontend. 업로드된 오디오 파일에 접근할 수 있는 presigned URL을 발급합니다. 재생이 필요한 결과 화면에서 사용할 수 있습니다."
+	)
 	public PresignedUrlResponse getPresignedUrl(
 			Authentication authentication,
 			@PathVariable Long uploadId) {
@@ -129,29 +129,6 @@ public class UploadController {
 		Date expiration = new Date(System.currentTimeMillis() + PRESIGNED_URL_EXPIRES_IN_SECONDS * 1000);
 		URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), key, expiration);
 		return new PresignedUrlResponse(key, presignedUrl.toString(), PRESIGNED_URL_EXPIRES_IN_SECONDS);
-	}
-
-	@PostMapping("/{uploadId}/analyze")
-	@Operation(summary = "오디오 AI 분석 요청", description = "업로드된 오디오와 프레임 데이터를 FastAPI 분석 서버로 전달하고 결과를 저장합니다.")
-	public FastApiDispatchResponse analyze(
-			Authentication authentication,
-			@PathVariable Long uploadId,
-			@org.springframework.web.bind.annotation.RequestBody SendToFastApiRequest request) {
-		String username = extractUsername(authentication);
-		UploadFile uploadFile = uploadFileRepository.findById(uploadId)
-				.orElseThrow(() -> new IllegalArgumentException("업로드 파일을 찾을 수 없습니다."));
-
-		if (!uploadFile.getUser().getEmail().equals(username)) {
-			throw new IllegalArgumentException("본인 파일만 전송할 수 있습니다.");
-		}
-
-		return fastApiUploadService.sendUpload(
-				uploadFile,
-				request.sessionId(),
-				request.questionId(),
-				request.expectedText(),
-				request.frames()
-		);
 	}
 
 	private String buildObjectKey(String username, String originalFilename) {

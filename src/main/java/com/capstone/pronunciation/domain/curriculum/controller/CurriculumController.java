@@ -18,7 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RequestMapping("/api/curriculum")
 @RestController
-@Tag(name = "Curriculum", description = "레벨별 커리큘럼, 레슨 목록, 완료 처리 API")
+@Tag(name = "Frontend - Curriculum", description = "프론트 실사용 API: 커리큘럼, 레슨 목록, 완료 처리를 담당합니다.")
 public class CurriculumController {
 	private final CurriculumService curriculumService;
 
@@ -27,19 +27,30 @@ public class CurriculumController {
 	}
 
 	@GetMapping("/stages")
-	@Operation(summary = "기존 stage 목록 조회", description = "기존 호환성을 위한 stage 목록 조회 API입니다. 신규 클라이언트는 /levels 사용을 권장합니다.")
+	@Deprecated
+	@Operation(
+			summary = "[호환용] stage 목록 조회",
+			description = "기존 호환성을 위한 API입니다. 신규 프론트는 사용하지 않고 /api/curriculum/levels 를 사용합니다.",
+			deprecated = true
+	)
 	public List<StageProgressResponse> stages(Authentication authentication) {
 		return curriculumService.stages(authentication.getName());
 	}
 
 	@GetMapping("/levels")
-	@Operation(summary = "레벨 목록 조회", description = "레벨별 잠금 상태, 완료 여부, 진행도를 조회합니다.")
+	@Operation(
+			summary = "[프론트 사용] 레벨 목록 조회",
+			description = "레벨별 잠금 상태, 완료 여부, 진행도를 조회합니다."
+	)
 	public List<StageProgressResponse> levels(Authentication authentication) {
 		return curriculumService.stages(authentication.getName());
 	}
 
 	@GetMapping("/levels/{level}/lessons")
-	@Operation(summary = "레벨별 레슨 조회", description = "선택한 레벨에 속한 레슨(문제) 목록과 완료 여부를 조회합니다.")
+	@Operation(
+			summary = "[프론트 사용] 레벨별 레슨 조회",
+			description = "선택한 레벨에 속한 레슨(문제) 목록과 완료 여부를 조회합니다."
+	)
 	public List<LessonSummaryResponse> lessonsByLevel(
 			Authentication authentication,
 			@PathVariable Integer level) {
@@ -47,7 +58,10 @@ public class CurriculumController {
 	}
 
 	@GetMapping("/lessons/{lessonId}")
-	@Operation(summary = "레슨 상세 조회", description = "특정 레슨의 상세 문제 정보와 완료 여부를 조회합니다.")
+	@Operation(
+			summary = "[프론트 사용] 레슨 상세 조회",
+			description = "특정 레슨의 상세 문제 정보와 완료 여부를 조회합니다."
+	)
 	public LessonDetailResponse lessonDetail(
 			Authentication authentication,
 			@PathVariable Long lessonId) {
@@ -55,7 +69,10 @@ public class CurriculumController {
 	}
 
 	@PostMapping("/lessons/{lessonId}/complete")
-	@Operation(summary = "레슨 완료 처리", description = "특정 레슨을 완료 처리하고 진행도를 반영합니다.")
+	@Operation(
+			summary = "[프론트 사용] 레슨 완료 처리",
+			description = "특정 레슨을 완료 처리하고 진행도를 반영합니다."
+	)
 	public void completeLesson(
 			Authentication authentication,
 			@PathVariable Long lessonId) {
