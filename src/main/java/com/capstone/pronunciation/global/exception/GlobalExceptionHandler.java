@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.amazonaws.AmazonServiceException;
@@ -64,6 +65,13 @@ public class GlobalExceptionHandler {
 		}
 		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
 				.body(new ErrorResponse("UPSTREAM_API_ERROR", message));
+	}
+
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException e) {
+		log.warn("Static resource not found: {}", e.getResourcePath());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(new ErrorResponse("NOT_FOUND", "요청한 리소스를 찾을 수 없습니다."));
 	}
 
 	@ExceptionHandler(Exception.class)
