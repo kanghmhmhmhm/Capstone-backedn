@@ -366,20 +366,29 @@
   <script>
     const DEFAULT_FRAMES = JSON.stringify([
       {
-        frameIndex: 0,
-        timestampMs: 0,
-        landmarks: [
+        t_ms: 0,
+        face_landmarks: [
           { x: 0.51, y: 0.62, z: -0.01 },
           { x: 0.54, y: 0.64, z: -0.02 }
-        ]
+        ],
+        face_blendshapes: {
+          mouthSmileLeft: 0.12,
+          mouthSmileRight: 0.08,
+          jawOpen: 0.31
+        }
       },
       {
-        frameIndex: 1,
-        timestampMs: 33,
-        landmarks: [
+        t_ms: 33,
+        face_landmarks: [
           { x: 0.5, y: 0.61, z: -0.01 },
           { x: 0.55, y: 0.65, z: -0.02 }
         ]
+        ,
+        face_blendshapes: {
+          mouthSmileLeft: 0.1,
+          mouthSmileRight: 0.07,
+          jawOpen: 0.28
+        }
       }
     ], null, 2);
 

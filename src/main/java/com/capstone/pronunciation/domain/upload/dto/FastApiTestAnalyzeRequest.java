@@ -12,7 +12,7 @@ public record FastApiTestAnalyzeRequest(
 		String word,
 		@Schema(
 				description = "MediaPipe에서 추출한 프레임별 입술/얼굴 랜드마크 데이터 배열",
-				example = "[{\"frameIndex\":0,\"timestampMs\":0,\"landmarks\":[{\"x\":0.51,\"y\":0.62,\"z\":-0.01}]}]"
+				example = "[{\"t_ms\":0,\"face_landmarks\":[{\"x\":0.51,\"y\":0.62,\"z\":-0.01}],\"face_blendshapes\":{\"mouthSmileLeft\":0.12,\"jawOpen\":0.31}}]"
 		)
 		List<JsonNode> frames
 ) {
