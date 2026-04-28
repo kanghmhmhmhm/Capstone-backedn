@@ -49,84 +49,95 @@ class CurriculumServiceTest {
 	private SessionResultRepository sessionResultRepository;
 
 	private User user;
-	private CurriculumStage alphabetStage;
-	private CurriculumStage sentenceLv1Stage;
-	private CurriculumStage sentenceLv2Stage;
-	private QuizQuestion sentenceLv1Question;
-	private QuizQuestion sentenceLv2Question;
+	private CurriculumStage basicPronunciationStage;
+	private CurriculumStage wordStage;
+	private CurriculumStage sentenceLv3Stage;
+	private CurriculumStage sentenceLv4Stage;
+	private QuizQuestion wordQuestion;
+	private QuizQuestion sentenceLv3Question;
+	private QuizQuestion sentenceLv4Question;
 
 	@BeforeEach
 	void setUp() {
-		user = userRepository.save(new User("learner@example.com", "encoded-password", "Learner", 1));
-		alphabetStage = curriculumStageRepository.findByStageNameIgnoreCase("ALPHABET")
-				.orElseThrow();do
-		sentenceLv1Stage = curriculumStageRepository.findByStageNameIgnoreCase("Sentence Lv1")
+		user = userRepository.save(new User("learner@example.com", "encoded-password", "Learner", "Learner", 1));
+		basicPronunciationStage = curriculumStageRepository.findByStageNameIgnoreCase("BASIC_PRONUNCIATION")
 				.orElseThrow();
-		sentenceLv2Stage = curriculumStageRepository.findByStageNameIgnoreCase("Sentence Lv2")
+		wordStage = curriculumStageRepository.findByStageNameIgnoreCase("WORD")
+				.orElseThrow();
+		sentenceLv3Stage = curriculumStageRepository.findByStageNameIgnoreCase("Sentence Lv3")
+				.orElseThrow();
+		sentenceLv4Stage = curriculumStageRepository.findByStageNameIgnoreCase("Sentence Lv4")
 				.orElseThrow();
 
-		sentenceLv1Question = quizQuestionRepository.findByStage_IdOrderByIdAsc(sentenceLv1Stage.getId()).stream()
+		wordQuestion = quizQuestionRepository.findByStage_IdOrderByIdAsc(wordStage.getId()).stream()
 				.findFirst()
 				.orElseThrow();
-		sentenceLv2Question = quizQuestionRepository.findByStage_IdOrderByIdAsc(sentenceLv2Stage.getId()).stream()
+		sentenceLv3Question = quizQuestionRepository.findByStage_IdOrderByIdAsc(sentenceLv3Stage.getId()).stream()
+				.findFirst()
+				.orElseThrow();
+		sentenceLv4Question = quizQuestionRepository.findByStage_IdOrderByIdAsc(sentenceLv4Stage.getId()).stream()
 				.findFirst()
 				.orElseThrow();
 	}
 
 	@Test
-	void stages_onlyUnlockNextSentenceLevelAfterPreviousSentenceIsCompleted() {
+	void stages_onlyUnlockNextStageAfterPreviousStageIsCompleted() {
 		List<StageProgressResponse> beforeCompletion = curriculumService.stages(user.getEmail());
 
-		assertStageUnlocked(beforeCompletion, "ALPHABET", true);
-		assertStageUnlocked(beforeCompletion, "Sentence Lv1", true);
-		assertStageUnlocked(beforeCompletion, "Sentence Lv2", false);
+		assertStageUnlocked(beforeCompletion, "BASIC_PRONUNCIATION", true);
+		assertStageUnlocked(beforeCompletion, "WORD", false);
+		assertStageUnlocked(beforeCompletion, "Sentence Lv3", false);
 
-		completeStage(sentenceLv1Stage, 100);
+		completeStage(basicPronunciationStage, 100.0);
 
 		List<StageProgressResponse> afterCompletion = curriculumService.stages(user.getEmail());
 
-		assertStageUnlocked(afterCompletion, "Sentence Lv1", true);
-		assertStageUnlocked(afterCompletion, "Sentence Lv2", true);
+		assertStageUnlocked(afterCompletion, "BASIC_PRONUNCIATION", true);
+		assertStageUnlocked(afterCompletion, "WORD", true);
+		assertStageUnlocked(afterCompletion, "Sentence Lv3", false);
 	}
 
 	@Test
-	void lockedSentenceLevelCannotBeViewedOrCompleted() {
+	void lockedWordLevelCannotBeViewedOrCompleted() {
 		IllegalArgumentException detailException = assertThrows(
 				IllegalArgumentException.class,
-				() -> curriculumService.questionDetail(user.getEmail(), sentenceLv2Question.getId()));
+				() -> curriculumService.questionDetail(user.getEmail(), wordQuestion.getId()));
 		assertEquals("잠금 해제되지 않은 단계입니다.", detailException.getMessage());
 
 		IllegalArgumentException completeException = assertThrows(
 				IllegalArgumentException.class,
-				() -> curriculumService.completeQuestion(user.getEmail(), sentenceLv2Question.getId(), 100));
+				() -> curriculumService.completeQuestion(user.getEmail(), wordQuestion.getId(), 100));
 		assertEquals("잠금 해제되지 않은 단계입니다.", completeException.getMessage());
 	}
 
 	@Test
 	void sentenceCategoryReturnsOnlyUnlockedSentenceLessons() {
+		completeStage(basicPronunciationStage, 100.0);
+		completeStage(wordStage, 100.0);
+
 		List<Long> lessonIdsBeforeCompletion = curriculumService.lessonsByStageName(user.getEmail(), "SENTENCE").stream()
 				.map(lesson -> lesson.id())
 				.toList();
 
-		assertTrue(lessonIdsBeforeCompletion.contains(sentenceLv1Question.getId()));
-		assertFalse(lessonIdsBeforeCompletion.contains(sentenceLv2Question.getId()));
+		assertTrue(lessonIdsBeforeCompletion.contains(sentenceLv3Question.getId()));
+		assertFalse(lessonIdsBeforeCompletion.contains(sentenceLv4Question.getId()));
 
-		completeStage(sentenceLv1Stage, 100);
+		completeStage(sentenceLv3Stage, 100.0);
 
 		List<Long> lessonIdsAfterCompletion = curriculumService.lessonsByStageName(user.getEmail(), "SENTENCE").stream()
 				.map(lesson -> lesson.id())
 				.toList();
 
-		assertTrue(lessonIdsAfterCompletion.contains(sentenceLv2Question.getId()));
+		assertTrue(lessonIdsAfterCompletion.contains(sentenceLv4Question.getId()));
 	}
 
-	private void complete(QuizQuestion question, int score) {
+	private void complete(QuizQuestion question, double score) {
 		LearningSession session = learningSessionRepository.save(
 				new LearningSession(user, Instant.now(), Instant.now(), question.getDifficulty()));
 		sessionResultRepository.save(new SessionResult(session, question, score));
 	}
 
-	private void completeStage(CurriculumStage stage, int score) {
+	private void completeStage(CurriculumStage stage, double score) {
 		for (QuizQuestion question : quizQuestionRepository.findByStage_IdOrderByIdAsc(stage.getId())) {
 			complete(question, score);
 		}
