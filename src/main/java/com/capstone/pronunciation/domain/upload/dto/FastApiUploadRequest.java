@@ -21,6 +21,8 @@ public record FastApiUploadRequest(
 		String audioUrl,
 		@Schema(description = "문제의 정답 문장", example = "She sells seashells by the seashore.")
 		String expectedText,
+		@Schema(description = "사용자가 선택한 보기", example = "keep")
+		String selectedChoice,
 		@Schema(
 				description = "MediaPipe에서 추출한 프레임별 입술/얼굴 랜드마크 데이터 배열",
 				example = "[{\"frameIndex\":0,\"timestampMs\":0,\"landmarks\":[{\"x\":0.51,\"y\":0.62,\"z\":-0.01}]}]"

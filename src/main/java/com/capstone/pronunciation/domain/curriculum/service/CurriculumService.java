@@ -143,6 +143,7 @@ public class CurriculumService {
 				q.getSentence(),
 				q.getPhoneticSymbol(),
 				q.getAnswer(),
+				q.getChoiceOptions(),
 				q.getAnimationData(),
 				completed
 		);

@@ -1,12 +1,19 @@
 package com.capstone.pronunciation.domain.quiz.entity;
 
+import java.util.Collections;
+import java.util.List;
+
 import com.capstone.pronunciation.domain.curriculum.entity.CurriculumStage;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.*;
 
 @Table(name = "quiz_questions")
 @Entity
 public class QuizQuestion {
+	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+	private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {};
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,6 +36,10 @@ public class QuizQuestion {
 	@Column(name = "animation_data")
 	private String animationData;
 
+	@Lob
+	@Column(name = "choice_options")
+	private String choiceOptions;
+
 	@Column(nullable = false, columnDefinition = "integer default 1")
 	private int difficulty;
 
@@ -43,15 +54,25 @@ public class QuizQuestion {
 	}
 
 	public QuizQuestion(CurriculumStage stage, String sentence, String answer, String phoneticSymbol) {
-		this(stage, sentence, answer, phoneticSymbol, null, stage.getDifficulty());
+		this(stage, sentence, answer, phoneticSymbol, null, stage.getDifficulty(), List.of());
 	}
 
 	public QuizQuestion(CurriculumStage stage, String sentence, String answer, String phoneticSymbol, String animationData) {
-		this(stage, sentence, answer, phoneticSymbol, animationData, stage.getDifficulty());
+		this(stage, sentence, answer, phoneticSymbol, animationData, stage.getDifficulty(), List.of());
 	}
 
 	public QuizQuestion(CurriculumStage stage, String sentence, String answer, String phoneticSymbol, int difficulty) {
-		this(stage, sentence, answer, phoneticSymbol, null, difficulty);
+		this(stage, sentence, answer, phoneticSymbol, null, difficulty, List.of());
+	}
+
+	public QuizQuestion(
+			CurriculumStage stage,
+			String sentence,
+			String answer,
+			String phoneticSymbol,
+			int difficulty,
+			List<String> choiceOptions) {
+		this(stage, sentence, answer, phoneticSymbol, null, difficulty, choiceOptions);
 	}
 
 	public QuizQuestion(
@@ -60,12 +81,14 @@ public class QuizQuestion {
 			String answer,
 			String phoneticSymbol,
 			String animationData,
-			int difficulty) {
+			int difficulty,
+			List<String> choiceOptions) {
 		this.stage = stage;
 		this.sentence = sentence;
 		this.answer = answer;
 		this.phoneticSymbol = phoneticSymbol;
 		this.animationData = animationData;
+		setChoiceOptions(choiceOptions);
 		this.difficulty = difficulty;
 	}
 
@@ -111,6 +134,29 @@ public class QuizQuestion {
 
 	public void setAnimationData(String animationData) {
 		this.animationData = animationData;
+	}
+
+	public List<String> getChoiceOptions() {
+		if (choiceOptions == null || choiceOptions.isBlank()) {
+			return List.of();
+		}
+		try {
+			return OBJECT_MAPPER.readValue(choiceOptions, STRING_LIST_TYPE);
+		} catch (Exception ignored) {
+			return Collections.emptyList();
+		}
+	}
+
+	public void setChoiceOptions(List<String> choiceOptions) {
+		if (choiceOptions == null || choiceOptions.isEmpty()) {
+			this.choiceOptions = null;
+			return;
+		}
+		try {
+			this.choiceOptions = OBJECT_MAPPER.writeValueAsString(choiceOptions);
+		} catch (Exception e) {
+			throw new IllegalArgumentException("choiceOptions를 저장할 수 없습니다.", e);
+		}
 	}
 
 	public int getDifficulty() {

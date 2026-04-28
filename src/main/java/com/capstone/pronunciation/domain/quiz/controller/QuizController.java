@@ -34,6 +34,11 @@ public class QuizController {
 			Authentication authentication,
 			@PathVariable Long sessionId,
 			@RequestBody SubmitAnswerRequest request) {
-		return quizService.submitTranscript(authentication.getName(), sessionId, request.questionId(), request.transcript());
+		return quizService.submitTranscript(
+				authentication.getName(),
+				sessionId,
+				request.questionId(),
+				request.transcript(),
+				request.selectedChoice());
 	}
 }

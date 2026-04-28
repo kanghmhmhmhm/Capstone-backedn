@@ -43,8 +43,8 @@ public class HistoryService {
 				r.getPronunciationScore() == null ? null : r.getPronunciationScore().getVoiceScore(),
 				r.getPronunciationScore() == null ? null : r.getPronunciationScore().getVisionScore(),
 				r.getSubmission() == null ? null : r.getSubmission().getTranscript(),
+				r.getSubmission() == null ? null : r.getSubmission().getSelectedChoice(),
 				r.getCreatedAt()
 		)).toList();
 	}
 }
-

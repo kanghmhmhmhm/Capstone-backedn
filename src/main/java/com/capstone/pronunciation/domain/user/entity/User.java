@@ -23,16 +23,20 @@ public class User {
 	@Column(nullable = false, length = 50)
 	private String name;
 
+	@Column(length = 50)
+	private String nickname;
+
 	@Column(nullable = false, columnDefinition = "integer default 1")
 	private int level;
 
 	protected User() {
 	}
 
-	public User(String email, String password, String name, int level) {
+	public User(String email, String password, String name, String nickname, int level) {
 		this.email = email;
 		this.password = password;
 		this.name = name;
+		this.nickname = nickname;
 		this.level = level;
 	}
 
@@ -69,6 +73,14 @@ public class User {
 
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	public String getNickname() {
+		return nickname;
+	}
+
+	public void setNickname(String nickname) {
+		this.nickname = nickname;
 	}
 
 	public int getLevel() {

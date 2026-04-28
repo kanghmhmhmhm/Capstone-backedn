@@ -80,6 +80,7 @@ public class FastApiUploadService {
 			Long sessionId,
 			Long questionId,
 			String expectedText,
+			String selectedChoice,
 			List<JsonNode> frames) {
 		if (sessionId == null) {
 			throw new IllegalArgumentException("sessionId는 필수입니다.");
@@ -104,6 +105,7 @@ public class FastApiUploadService {
 				uploadFile.getS3Key(),
 				presignedUrl.toString(),
 				expectedText,
+				selectedChoice,
 				frames,
 				Instant.now()
 		);
@@ -117,7 +119,7 @@ public class FastApiUploadService {
 
 		HttpStatusCode statusCode = responseEntity.getStatusCode();
 		JsonNode responseBody = responseEntity.getBody();
-		SavedAnalysisResult savedResult = saveAnalysisResult(uploadFile, sessionId, questionId, responseBody);
+		SavedAnalysisResult savedResult = saveAnalysisResult(uploadFile, sessionId, questionId, selectedChoice, responseBody);
 
 		return new FastApiDispatchResponse(
 				uploadFile.getId(),
@@ -129,6 +131,7 @@ public class FastApiUploadService {
 				savedResult.voiceScore(),
 				savedResult.visionScore(),
 				savedResult.transcript(),
+				savedResult.selectedChoice(),
 				savedResult.feedbackText()
 		);
 	}
@@ -137,6 +140,7 @@ public class FastApiUploadService {
 			UploadFile uploadFile,
 			Long sessionId,
 			Long questionId,
+			String selectedChoice,
 			JsonNode responseBody) {
 		if (responseBody == null || responseBody.isNull()) {
 			throw new IllegalStateException("FastAPI 응답 본문이 비어 있습니다.");
@@ -147,9 +151,9 @@ public class FastApiUploadService {
 		QuizQuestion question = quizQuestionRepository.findById(questionId)
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
 
-		int finalScore = readRequiredScore(responseBody, path("overall_scores", "fused_score_0_100"));
-		int voiceScore = readRequiredScore(responseBody, path("overall_scores", "audio_score_0_100"));
-		int visionScore = readRequiredScore(responseBody, path("overall_scores", "visual_score_0_100"));
+		double finalScore = readRequiredScore(responseBody, path("overall_scores", "fused_score_0_100"));
+		double voiceScore = readRequiredScore(responseBody, path("overall_scores", "audio_score_0_100"));
+		double visionScore = readRequiredScore(responseBody, path("overall_scores", "visual_score_0_100"));
 
 		String transcript = readText(responseBody,
 				path("transcript"),
@@ -164,6 +168,7 @@ public class FastApiUploadService {
 		answerSubmissionRepository.save(new AnswerSubmission(
 				result,
 				transcript,
+				selectedChoice,
 				"FASTAPI",
 				providerPayload,
 				uploadFile,
@@ -180,6 +185,7 @@ public class FastApiUploadService {
 				voiceScore,
 				visionScore,
 				transcript,
+				selectedChoice,
 				feedbackText
 		);
 	}
@@ -206,7 +212,7 @@ public class FastApiUploadService {
 		return "AI 발음 분석 완료";
 	}
 
-	private int readRequiredScore(JsonNode root, String[] path) {
+	private double readRequiredScore(JsonNode root, String[] path) {
 		JsonNode node = readNode(root, path);
 		if (node == null || node.isMissingNode() || node.isNull()) {
 			throw new IllegalStateException("FastAPI 응답에 필수 점수 필드가 없습니다: " + String.join(".", path));
@@ -263,23 +269,18 @@ public class FastApiUploadService {
 		return values;
 	}
 
-	private static int clampScore(double value) {
-		int rounded = (int) Math.round(value);
-		if (rounded < 0) {
-			return 0;
-		}
-		if (rounded > 100) {
-			return 100;
-		}
-		return rounded;
+	private static double clampScore(double value) {
+		double bounded = Math.max(0.0, Math.min(100.0, value));
+		return Math.round(bounded * 10.0) / 10.0;
 	}
 
 	private record SavedAnalysisResult(
 			Long resultId,
-			Integer score,
-			Integer voiceScore,
-			Integer visionScore,
+			Double score,
+			Double voiceScore,
+			Double visionScore,
 			String transcript,
+			String selectedChoice,
 			String feedbackText
 	) {
 	}

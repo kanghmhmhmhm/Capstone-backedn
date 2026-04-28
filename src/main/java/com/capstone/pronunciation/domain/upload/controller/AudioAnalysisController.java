@@ -54,6 +54,7 @@ public class AudioAnalysisController {
 				request.sessionId(),
 				request.questionId(),
 				request.expectedText(),
+				request.selectedChoice(),
 				request.frames()
 		);
 	}

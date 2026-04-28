@@ -6,6 +6,7 @@ public record MyPageSummaryResponse(
 		Long userId,
 		String email,
 		String name,
+		String nickname,
 		int level,
 		long totalSessions,
 		long completedSessions,

@@ -14,16 +14,16 @@ public class PronunciationScore {
 	@JoinColumn(name = "result_id", nullable = false, unique = true)
 	private SessionResult result;
 
-	@Column(name = "voice_score", nullable = false)
-	private int voiceScore;
+	@Column(name = "voice_score", nullable = false, precision = 5, scale = 1)
+	private double voiceScore;
 
-	@Column(name = "vision_score", nullable = false)
-	private int visionScore;
+	@Column(name = "vision_score", nullable = false, precision = 5, scale = 1)
+	private double visionScore;
 
 	protected PronunciationScore() {
 	}
 
-	public PronunciationScore(SessionResult result, int voiceScore, int visionScore) {
+	public PronunciationScore(SessionResult result, double voiceScore, double visionScore) {
 		this.result = result;
 		this.voiceScore = voiceScore;
 		this.visionScore = visionScore;
@@ -37,20 +37,19 @@ public class PronunciationScore {
 		return result;
 	}
 
-	public int getVoiceScore() {
+	public double getVoiceScore() {
 		return voiceScore;
 	}
 
-	public void setVoiceScore(int voiceScore) {
+	public void setVoiceScore(double voiceScore) {
 		this.voiceScore = voiceScore;
 	}
 
-	public int getVisionScore() {
+	public double getVisionScore() {
 		return visionScore;
 	}
 
-	public void setVisionScore(int visionScore) {
+	public void setVisionScore(double visionScore) {
 		this.visionScore = visionScore;
 	}
 }
-

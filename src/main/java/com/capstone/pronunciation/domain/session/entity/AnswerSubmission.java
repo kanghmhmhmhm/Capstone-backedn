@@ -27,6 +27,9 @@ public class AnswerSubmission {
 	@Column
 	private String transcript;
 
+	@Column(name = "selected_choice", length = 255)
+	private String selectedChoice;
+
 	@Column(nullable = false, length = 50)
 	private String provider;
 
@@ -47,12 +50,14 @@ public class AnswerSubmission {
 	public AnswerSubmission(
 			SessionResult result,
 			String transcript,
+			String selectedChoice,
 			String provider,
 			String providerPayload,
 			UploadFile uploadFile,
 			Instant createdAt) {
 		this.result = result;
 		this.transcript = transcript;
+		this.selectedChoice = selectedChoice;
 		this.provider = provider;
 		this.providerPayload = providerPayload;
 		this.uploadFile = uploadFile;
@@ -80,6 +85,14 @@ public class AnswerSubmission {
 
 	public void setTranscript(String transcript) {
 		this.transcript = transcript;
+	}
+
+	public String getSelectedChoice() {
+		return selectedChoice;
+	}
+
+	public void setSelectedChoice(String selectedChoice) {
+		this.selectedChoice = selectedChoice;
 	}
 
 	public String getProvider() {

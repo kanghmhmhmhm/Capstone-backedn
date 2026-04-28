@@ -65,7 +65,7 @@ public class DashboardService {
 
 		Double averageScore = results.isEmpty()
 				? null
-				: round(results.stream().mapToInt(SessionResult::getScore).average().orElse(0));
+				: round(results.stream().mapToDouble(SessionResult::getScore).average().orElse(0));
 
 		List<WeakPhonemeResponse> weakPhonemes = results.stream()
 				.filter(result -> result.getQuestion().getPhoneticSymbol() != null && !result.getQuestion().getPhoneticSymbol().isBlank())
@@ -85,6 +85,7 @@ public class DashboardService {
 		return new DashboardSummaryResponse(
 				user.getId(),
 				user.getName(),
+				resolveNickname(user),
 				user.getLevel(),
 				totalSessions,
 				completedSessions,
@@ -97,7 +98,7 @@ public class DashboardService {
 
 	private WeakPhonemeResponse toWeakPhoneme(Map.Entry<String, List<SessionResult>> entry) {
 		double avg = entry.getValue().stream()
-				.mapToInt(SessionResult::getScore)
+				.mapToDouble(SessionResult::getScore)
 				.average()
 				.orElse(0);
 
@@ -121,6 +122,13 @@ public class DashboardService {
 	}
 
 	private static double round(double value) {
-		return Math.round(value * 100.0) / 100.0;
+		return Math.round(value * 10.0) / 10.0;
+	}
+
+	private static String resolveNickname(User user) {
+		if (user.getNickname() != null && !user.getNickname().isBlank()) {
+			return user.getNickname();
+		}
+		return user.getName();
 	}
 }

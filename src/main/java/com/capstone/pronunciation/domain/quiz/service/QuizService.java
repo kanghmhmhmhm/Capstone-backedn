@@ -31,7 +31,7 @@ public class QuizService {
 	private static final String BASIC_PRONUNCIATION_STAGE = "BASIC_PRONUNCIATION";
 	private static final String WORD_STAGE = "WORD";
 	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
-	private static final int SESSION_QUESTION_COUNT = 5;
+	private static final int SESSION_QUESTION_COUNT = 10;
 	private static final int LEVEL_EVAL_WINDOW = 5;
 	private static final int LEVEL_UP_AVERAGE_SCORE = 85;
 	private static final int LEVEL_DOWN_AVERAGE_SCORE = 60;
@@ -108,7 +108,12 @@ public class QuizService {
 	}
 
 	@Transactional
-	public SubmitAnswerResponse submitTranscript(String email, Long sessionId, Long questionId, String transcript) {
+	public SubmitAnswerResponse submitTranscript(
+			String email,
+			Long sessionId,
+			Long questionId,
+			String transcript,
+			String selectedChoice) {
 		User user = userRepository.findByEmail(email)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
@@ -118,18 +123,20 @@ public class QuizService {
 		QuizQuestion q = questionRepository.findById(questionId)
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
 
-		if (transcript == null || transcript.isBlank()) {
-			throw new IllegalArgumentException("transcript는 필수입니다.");
+		String submittedText = firstNonBlank(transcript, selectedChoice);
+		if (submittedText == null || submittedText.isBlank()) {
+			throw new IllegalArgumentException("transcript 또는 selectedChoice 중 하나는 필수입니다.");
 		}
 
 		String expected = q.getAnswer() != null && !q.getAnswer().isBlank() ? q.getAnswer() : q.getSentence();
-		int score = scoreSimilarity(expected, transcript);
+		double score = scoreSimilarity(expected, submittedText);
 
 		SessionResult result = sessionResultRepository.save(new SessionResult(session, q, score));
 		pronunciationScoreRepository.save(new PronunciationScore(result, score, 0));
 		answerSubmissionRepository.save(new AnswerSubmission(
 				result,
-				transcript,
+				submittedText,
+				selectedChoice,
 				"LOCAL",
 				null,
 				null,
@@ -137,7 +144,7 @@ public class QuizService {
 		));
 		updateUserLevelIfNeeded(user, q);
 
-		return new SubmitAnswerResponse(result.getId(), score, expected, transcript, null, null);
+		return new SubmitAnswerResponse(result.getId(), score, expected, submittedText, selectedChoice, null, null);
 	}
 
 	@Transactional
@@ -161,15 +168,17 @@ public class QuizService {
 		QuizQuestion q = questionRepository.findById(request.questionId())
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
 
-		int voice = clampScore(request.voiceScore() != null ? request.voiceScore() : request.score());
-		int vision = clampScore(request.visionScore() != null ? request.visionScore() : 0);
-		int finalScore = clampScore(request.score() != null ? request.score() : voice);
+		double voice = clampScore(request.voiceScore() != null ? request.voiceScore() : request.score());
+		double vision = clampScore(request.visionScore() != null ? request.visionScore() : 0);
+		double finalScore = clampScore(request.score() != null ? request.score() : voice);
+		String submittedText = firstNonBlank(request.transcript(), request.selectedChoice());
 
 		SessionResult result = sessionResultRepository.save(new SessionResult(session, q, finalScore));
 		pronunciationScoreRepository.save(new PronunciationScore(result, voice, vision));
 		answerSubmissionRepository.save(new AnswerSubmission(
 				result,
-				request.transcript(),
+				submittedText,
+				request.selectedChoice(),
 				"OPENAI",
 				null,
 				null,
@@ -178,7 +187,7 @@ public class QuizService {
 		updateUserLevelIfNeeded(user, q);
 
 		String expected = q.getAnswer() != null && !q.getAnswer().isBlank() ? q.getAnswer() : q.getSentence();
-		return new SubmitAnswerResponse(result.getId(), finalScore, expected, request.transcript(), null, null);
+		return new SubmitAnswerResponse(result.getId(), finalScore, expected, submittedText, request.selectedChoice(), null, null);
 	}
 
 	@Transactional
@@ -187,9 +196,10 @@ public class QuizService {
 			Long sessionId,
 			Long questionId,
 			String transcript,
-			Integer score,
-			Integer voiceScore,
-			Integer visionScore,
+			String selectedChoice,
+			Double score,
+			Double voiceScore,
+			Double visionScore,
 			String audioFileName,
 			String audioContentType,
 			Long audioSizeBytes,
@@ -204,15 +214,17 @@ public class QuizService {
 		QuizQuestion q = questionRepository.findById(questionId)
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
 
-		int voice = clampScore(voiceScore != null ? voiceScore : score);
-		int vision = clampScore(visionScore != null ? visionScore : 0);
-		int finalScore = clampScore(score != null ? score : voice);
+		double voice = clampScore(voiceScore != null ? voiceScore : score);
+		double vision = clampScore(visionScore != null ? visionScore : 0);
+		double finalScore = clampScore(score != null ? score : voice);
+		String submittedText = firstNonBlank(transcript, selectedChoice);
 
 		SessionResult result = sessionResultRepository.save(new SessionResult(session, q, finalScore));
 		pronunciationScoreRepository.save(new PronunciationScore(result, voice, vision));
 		answerSubmissionRepository.save(new AnswerSubmission(
 				result,
-				transcript,
+				submittedText,
+				selectedChoice,
 				"OPENAI",
 				null,
 				null,
@@ -221,7 +233,7 @@ public class QuizService {
 		updateUserLevelIfNeeded(user, q);
 
 		String expected = q.getAnswer() != null && !q.getAnswer().isBlank() ? q.getAnswer() : q.getSentence();
-		return new SubmitAnswerResponse(result.getId(), finalScore, expected, transcript, null, null);
+		return new SubmitAnswerResponse(result.getId(), finalScore, expected, submittedText, selectedChoice, null, null);
 	}
 
 	private void updateUserLevelIfNeeded(User user, QuizQuestion question) {
@@ -236,7 +248,7 @@ public class QuizService {
 		}
 
 		double averageScore = recentSentenceResults.stream()
-				.mapToInt(SessionResult::getScore)
+				.mapToDouble(SessionResult::getScore)
 				.average()
 				.orElse(0);
 
@@ -265,6 +277,7 @@ public class QuizService {
 				question.getDifficulty(),
 				question.getSentence(),
 				answer,
+				question.getChoiceOptions(),
 				question.getAnimationData(),
 				solved
 		);
@@ -291,26 +304,32 @@ public class QuizService {
 		return SENTENCE_STAGE_PREFIX + selectedLevel;
 	}
 
-	private static int clampScore(Integer score) {
-		if (score == null) return 0;
-		if (score < 0) return 0;
-		if (score > 100) return 100;
-		return score;
+	private static double clampScore(Double score) {
+		if (score == null) return 0.0;
+		double bounded = Math.max(0.0, Math.min(100.0, score));
+		return Math.round(bounded * 10.0) / 10.0;
 	}
 
-	private static int scoreSimilarity(String expectedRaw, String actualRaw) {
+	private static double scoreSimilarity(String expectedRaw, String actualRaw) {
 		String expected = normalize(expectedRaw);
 		String actual = normalize(actualRaw);
-		if (expected.isEmpty() || actual.isEmpty()) return 0;
-		if (expected.equals(actual)) return 100;
+		if (expected.isEmpty() || actual.isEmpty()) return 0.0;
+		if (expected.equals(actual)) return 100.0;
 
 		int dist = levenshtein(expected, actual);
 		int maxLen = Math.max(expected.length(), actual.length());
 		double ratio = 1.0 - ((double) dist / (double) maxLen);
-		int score = (int) Math.round(ratio * 100.0);
-		if (score < 0) return 0;
-		if (score > 100) return 100;
-		return score;
+		return clampScore(ratio * 100.0);
+	}
+
+	private static String firstNonBlank(String first, String second) {
+		if (first != null && !first.isBlank()) {
+			return first;
+		}
+		if (second != null && !second.isBlank()) {
+			return second;
+		}
+		return null;
 	}
 
 	private static String normalize(String s) {

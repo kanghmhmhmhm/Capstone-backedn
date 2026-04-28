@@ -6,7 +6,7 @@ public record FeedbackItemResponse(
 		Long resultId,
 		Long questionId,
 		String sentence,
-		Integer score,
+		Double score,
 		String mode,
 		String feedbackText
 ) {

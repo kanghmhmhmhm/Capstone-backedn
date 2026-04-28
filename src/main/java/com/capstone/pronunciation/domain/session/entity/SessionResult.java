@@ -28,8 +28,8 @@ public class SessionResult {
 	@OneToOne(mappedBy = "result", fetch = FetchType.LAZY)
 	private AnswerSubmission submission;
 
-	@Column(nullable = false)
-	private int score;
+	@Column(nullable = false, precision = 5, scale = 1)
+	private double score;
 
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
@@ -37,7 +37,7 @@ public class SessionResult {
 	protected SessionResult() {
 	}
 
-	public SessionResult(LearningSession session, QuizQuestion question, int score) {
+	public SessionResult(LearningSession session, QuizQuestion question, double score) {
 		this.session = session;
 		this.question = question;
 		this.score = score;
@@ -71,11 +71,11 @@ public class SessionResult {
 		return submission;
 	}
 
-	public int getScore() {
+	public double getScore() {
 		return score;
 	}
 
-	public void setScore(int score) {
+	public void setScore(double score) {
 		this.score = score;
 	}
 

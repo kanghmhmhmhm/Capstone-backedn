@@ -10,11 +10,11 @@ public record StudyHistoryItemResponse(
 		String stageName,
 		Long questionId,
 		String sentence,
-		Integer score,
-		Integer voiceScore,
-		Integer visionScore,
+		Double score,
+		Double voiceScore,
+		Double visionScore,
 		String transcript,
+		String selectedChoice,
 		Instant createdAt
 ) {
 }
-

@@ -71,13 +71,14 @@ public class UserService {
 
 		String password = passwordEncoder.encode(requireText(request.password(), "비밀번호"));
 		String name = requireText(request.name(), "이름");
+		String nickname = requireText(request.nickname(), "닉네임");
 		int level = 1;
 
-		User user = new User(email, password, name, level);
+		User user = new User(email, password, name, nickname, level);
 		userRepository.save(user);
 
 		String accessToken = JwtUtil.issueAccessToken(user.getEmail());
-		return new AuthResponse(accessToken, new UserProfileResponse(user.getId(), user.getEmail(), user.getName(), user.getLevel()));
+		return new AuthResponse(accessToken, toUserProfileResponse(user));
 	}
 
 	// 로그인: id 조회 -> 비밀번호 검증 -> 토큰 발급
@@ -92,14 +93,14 @@ public class UserService {
 		}
 
 		String accessToken = JwtUtil.issueAccessToken(user.getEmail());
-		return new AuthResponse(accessToken, new UserProfileResponse(user.getId(), user.getEmail(), user.getName(), user.getLevel()));
+		return new AuthResponse(accessToken, toUserProfileResponse(user));
 	}
 
 	@Transactional(readOnly = true)
 	public UserProfileResponse me(String email) {
 		User user = userRepository.findByEmail(email)
 				.orElseThrow(() -> new UnauthorizedException("인증 정보가 올바르지 않습니다."));
-		return new UserProfileResponse(user.getId(), user.getEmail(), user.getName(), user.getLevel());
+		return toUserProfileResponse(user);
 	}
 
 	@Transactional(readOnly = true)
@@ -111,7 +112,7 @@ public class UserService {
 		long totalSolvedQuestions = results.size();
 		Double averageScore = results.isEmpty()
 				? null
-				: Math.round(results.stream().mapToInt(SessionResult::getScore).average().orElse(0) * 100.0) / 100.0;
+				: Math.round(results.stream().mapToDouble(SessionResult::getScore).average().orElse(0) * 10.0) / 10.0;
 		Instant lastStudiedAt = results.stream()
 				.map(SessionResult::getCreatedAt)
 				.max(Instant::compareTo)
@@ -121,6 +122,7 @@ public class UserService {
 				user.getId(),
 				user.getEmail(),
 				user.getName(),
+				resolveNickname(user),
 				user.getLevel(),
 				totalSessions,
 				completedSessions,
@@ -140,6 +142,9 @@ public class UserService {
 		if (request.name() != null && !request.name().isBlank()) {
 			user.setName(requireText(request.name(), "이름"));
 		}
+		if (request.nickname() != null && !request.nickname().isBlank()) {
+			user.setNickname(requireText(request.nickname(), "닉네임"));
+		}
 
 		boolean wantsPasswordChange = request.newPassword() != null && !request.newPassword().isBlank();
 		if (wantsPasswordChange) {
@@ -150,7 +155,7 @@ public class UserService {
 			user.setPassword(passwordEncoder.encode(requireText(request.newPassword(), "새 비밀번호")));
 		}
 
-		return new UserProfileResponse(user.getId(), user.getEmail(), user.getName(), user.getLevel());
+		return toUserProfileResponse(user);
 	}
 
 	@Transactional(readOnly = true)
@@ -186,6 +191,23 @@ public class UserService {
 	private User getUser(String email) {
 		return userRepository.findByEmail(email)
 				.orElseThrow(() -> new UnauthorizedException("인증 정보가 올바르지 않습니다."));
+	}
+
+	private UserProfileResponse toUserProfileResponse(User user) {
+		return new UserProfileResponse(
+				user.getId(),
+				user.getEmail(),
+				user.getName(),
+				resolveNickname(user),
+				user.getLevel()
+		);
+	}
+
+	private static String resolveNickname(User user) {
+		if (user.getNickname() != null && !user.getNickname().isBlank()) {
+			return user.getNickname();
+		}
+		return user.getName();
 	}
 
 	private static String normalizeEmail(String email) {

@@ -6,10 +6,11 @@ public record FastApiDispatchResponse(
 		String fastApiUrl,
 		int statusCode,
 		Long resultId,
-		Integer score,
-		Integer voiceScore,
-		Integer visionScore,
+		Double score,
+		Double voiceScore,
+		Double visionScore,
 		String transcript,
+		String selectedChoice,
 		String feedbackText
 ) {
 }

@@ -32,7 +32,7 @@ public class SessionService {
 	private static final String BASIC_PRONUNCIATION_STAGE = "BASIC_PRONUNCIATION";
 	private static final String WORD_STAGE = "WORD";
 	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
-	private static final int SESSION_QUESTION_COUNT = 5;
+	private static final int SESSION_QUESTION_COUNT = 10;
 
 	private final LearningSessionRepository learningSessionRepository;
 	private final SessionResultRepository sessionResultRepository;
@@ -162,6 +162,7 @@ public class SessionService {
 				result.getPronunciationScore() == null ? null : result.getPronunciationScore().getVoiceScore(),
 				result.getPronunciationScore() == null ? null : result.getPronunciationScore().getVisionScore(),
 				result.getSubmission() == null ? null : result.getSubmission().getTranscript(),
+				result.getSubmission() == null ? null : result.getSubmission().getSelectedChoice(),
 				result.getSubmission() == null || result.getSubmission().getUploadFile() == null ? null : result.getSubmission().getUploadFile().getId(),
 				result.getSubmission() == null || result.getSubmission().getUploadFile() == null ? null : result.getSubmission().getUploadFile().getObjectUrl(),
 				result.getCreatedAt()
@@ -170,7 +171,7 @@ public class SessionService {
 
 	private Double averageScore(Long sessionId) {
 		return sessionResultRepository.findAverageScoreBySessionId(sessionId)
-				.map(avg -> Math.round(avg * 100.0) / 100.0)
+				.map(avg -> Math.round(avg * 10.0) / 10.0)
 				.orElse(null);
 	}
 
@@ -216,6 +217,7 @@ public class SessionService {
 				question.getDifficulty(),
 				question.getSentence(),
 				answer,
+				question.getChoiceOptions(),
 				question.getAnimationData(),
 				solved
 		);

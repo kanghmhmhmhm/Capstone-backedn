@@ -27,7 +27,7 @@ public class AuthController {
 	@PostMapping("/signup")
 	@Operation(
 			summary = "[프론트 사용] 회원가입",
-			description = "이메일, 비밀번호, 이름으로 사용자 계정을 생성하고 인증 정보를 반환합니다."
+			description = "이메일, 비밀번호, 이름, 닉네임으로 사용자 계정을 생성하고 인증 정보를 반환합니다."
 	)
 	public AuthResponse signup(@RequestBody SignupRequest request) {
 		return userService.signup(request);
@@ -36,7 +36,7 @@ public class AuthController {
 	@PostMapping("/login")
 	@Operation(
 			summary = "[프론트 사용] 로그인",
-			description = "이메일과 비밀번호를 검증한 뒤 JWT 인증 정보를 반환합니다."
+			description = "이메일과 비밀번호를 검증한 뒤 JWT 인증 정보와 사용자 닉네임을 포함한 프로필을 반환합니다."
 	)
 	public AuthResponse login(@RequestBody LoginRequest request) {
 		return userService.login(request);
