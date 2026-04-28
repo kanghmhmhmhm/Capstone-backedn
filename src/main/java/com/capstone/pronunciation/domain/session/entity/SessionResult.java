@@ -28,7 +28,7 @@ public class SessionResult {
 	@OneToOne(mappedBy = "result", fetch = FetchType.LAZY)
 	private AnswerSubmission submission;
 
-	@Column(nullable = false, precision = 5, scale = 1)
+	@Column(nullable = false)
 	private double score;
 
 	@Column(name = "created_at", nullable = false)

@@ -14,10 +14,10 @@ public class PronunciationScore {
 	@JoinColumn(name = "result_id", nullable = false, unique = true)
 	private SessionResult result;
 
-	@Column(name = "voice_score", nullable = false, precision = 5, scale = 1)
+	@Column(name = "voice_score", nullable = false)
 	private double voiceScore;
 
-	@Column(name = "vision_score", nullable = false, precision = 5, scale = 1)
+	@Column(name = "vision_score", nullable = false)
 	private double visionScore;
 
 	protected PronunciationScore() {

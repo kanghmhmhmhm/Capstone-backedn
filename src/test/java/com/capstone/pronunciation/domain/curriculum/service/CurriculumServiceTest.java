@@ -59,7 +59,7 @@ class CurriculumServiceTest {
 	void setUp() {
 		user = userRepository.save(new User("learner@example.com", "encoded-password", "Learner", 1));
 		alphabetStage = curriculumStageRepository.findByStageNameIgnoreCase("ALPHABET")
-				.orElseThrow();
+				.orElseThrow();do
 		sentenceLv1Stage = curriculumStageRepository.findByStageNameIgnoreCase("Sentence Lv1")
 				.orElseThrow();
 		sentenceLv2Stage = curriculumStageRepository.findByStageNameIgnoreCase("Sentence Lv2")
