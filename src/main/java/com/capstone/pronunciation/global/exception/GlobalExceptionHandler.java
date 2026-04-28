@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.amazonaws.AmazonServiceException;
@@ -73,6 +74,20 @@ public class GlobalExceptionHandler {
 		}
 		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
 				.body(new ErrorResponse("UPSTREAM_API_ERROR", message));
+	}
+
+	@ExceptionHandler(RestClientException.class)
+	public ResponseEntity<ErrorResponse> handleRestClientException(RestClientException e) {
+		log.error("Upstream API client error: {}", e.getMessage(), e);
+		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+				.body(new ErrorResponse("UPSTREAM_API_ERROR", "AI 서버 호출 중 오류가 발생했습니다: " + e.getMessage()));
+	}
+
+	@ExceptionHandler(IllegalStateException.class)
+	public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException e) {
+		log.error("Illegal state error: {}", e.getMessage(), e);
+		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body(new ErrorResponse("PROCESSING_ERROR", e.getMessage()));
 	}
 
 	@ExceptionHandler(NoResourceFoundException.class)

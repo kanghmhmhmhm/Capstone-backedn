@@ -109,10 +109,10 @@ public class FastApiUploadService {
 				.contentType(MediaType.APPLICATION_JSON)
 				.body(request)
 				.retrieve()
-				.toEntity(JsonNode.class);
+				.toEntity(String.class);
 
 		HttpStatusCode statusCode = responseEntity.getStatusCode();
-		JsonNode responseBody = responseEntity.getBody();
+		JsonNode responseBody = parseResponseBody(responseEntity.getBody());
 		SavedAnalysisResult savedResult = saveAnalysisResult(uploadFile, sessionId, questionId, selectedChoice, responseBody);
 
 		return new FastApiDispatchResponse(
@@ -150,12 +150,14 @@ public class FastApiUploadService {
 				frames
 		);
 
-		return restClient.post()
+		String responseBody = restClient.post()
 				.uri(analyzePath)
 				.contentType(MediaType.APPLICATION_JSON)
 				.body(request)
 				.retrieve()
-				.body(JsonNode.class);
+				.body(String.class);
+
+		return parseResponseBody(responseBody);
 	}
 
 	private SavedAnalysisResult saveAnalysisResult(
@@ -289,6 +291,18 @@ public class FastApiUploadService {
 
 	private static String[] path(String... values) {
 		return values;
+	}
+
+	private JsonNode parseResponseBody(String responseBody) {
+		if (responseBody == null || responseBody.isBlank()) {
+			throw new IllegalStateException("AI 서버 응답 본문이 비어 있습니다.");
+		}
+
+		try {
+			return objectMapper.readTree(responseBody);
+		} catch (Exception e) {
+			throw new IllegalStateException("AI 서버 응답을 JSON으로 해석할 수 없습니다: " + responseBody, e);
+		}
 	}
 
 	private static double clampScore(double value) {
