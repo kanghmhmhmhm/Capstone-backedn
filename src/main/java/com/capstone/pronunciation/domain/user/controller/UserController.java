@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.capstone.pronunciation.domain.user.dto.DeleteAccountRequest;
 import com.capstone.pronunciation.domain.user.dto.MessageResponse;
 import com.capstone.pronunciation.domain.user.dto.MyPageSummaryResponse;
+import com.capstone.pronunciation.domain.user.dto.UpdateNicknameRequest;
 import com.capstone.pronunciation.domain.user.dto.UpdateProfileRequest;
 import com.capstone.pronunciation.domain.user.dto.UserProfileResponse;
 import com.capstone.pronunciation.domain.user.service.UserService;
@@ -56,6 +57,17 @@ public class UserController {
 			Authentication authentication,
 			@RequestBody UpdateProfileRequest request) {
 		return userService.updateProfile(authentication.getName(), request);
+	}
+
+	@PatchMapping("/nickname")
+	@Operation(
+			summary = "[프론트 사용] 닉네임 변경",
+			description = "현재 로그인한 사용자의 닉네임만 별도로 수정합니다."
+	)
+	public UserProfileResponse updateNickname(
+			Authentication authentication,
+			@RequestBody UpdateNicknameRequest request) {
+		return userService.updateNickname(authentication.getName(), request);
 	}
 
 	@PostMapping("/logout")

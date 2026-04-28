@@ -12,6 +12,7 @@ import com.capstone.pronunciation.domain.user.dto.LoginRequest;
 import com.capstone.pronunciation.domain.user.dto.MessageResponse;
 import com.capstone.pronunciation.domain.user.dto.MyPageSummaryResponse;
 import com.capstone.pronunciation.domain.user.dto.SignupRequest;
+import com.capstone.pronunciation.domain.user.dto.UpdateNicknameRequest;
 import com.capstone.pronunciation.domain.user.dto.UpdateProfileRequest;
 import com.capstone.pronunciation.domain.user.dto.UserProfileResponse;
 import com.capstone.pronunciation.domain.curriculum.repository.UserProgressRepository;
@@ -155,6 +156,17 @@ public class UserService {
 			user.setPassword(passwordEncoder.encode(requireText(request.newPassword(), "새 비밀번호")));
 		}
 
+		return toUserProfileResponse(user);
+	}
+
+	@Transactional
+	public UserProfileResponse updateNickname(String email, UpdateNicknameRequest request) {
+		User user = getUser(email);
+		if (request == null) {
+			throw new IllegalArgumentException("요청 값이 올바르지 않습니다.");
+		}
+
+		user.setNickname(requireText(request.nickname(), "닉네임"));
 		return toUserProfileResponse(user);
 	}
 
