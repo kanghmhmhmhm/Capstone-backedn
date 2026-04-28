@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.client.RestClientResponseException;
 
@@ -39,6 +40,13 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {
 		log.warn("Validation failed: {}", e.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse("BAD_REQUEST", "요청 값이 올바르지 않습니다."));
+	}
+
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpMessageNotReadableException e) {
+		log.warn("Unreadable request body: {}", e.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse("BAD_REQUEST", "요청 본문(JSON) 형식이 올바르지 않습니다."));
 	}
 
 	@ExceptionHandler(AmazonServiceException.class)
