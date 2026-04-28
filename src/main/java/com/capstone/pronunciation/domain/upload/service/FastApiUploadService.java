@@ -99,15 +99,9 @@ public class FastApiUploadService {
 		URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), uploadFile.getS3Key(), expiration);
 
 		FastApiUploadRequest request = new FastApiUploadRequest(
-				sessionId,
-				questionId,
-				uploadFile.getId(),
-				uploadFile.getS3Key(),
-				presignedUrl.toString(),
 				expectedText,
-				selectedChoice,
-				frames,
-				Instant.now()
+				presignedUrl.toString(),
+				frames
 		);
 
 		var responseEntity = restClient.post()
@@ -134,6 +128,34 @@ public class FastApiUploadService {
 				savedResult.selectedChoice(),
 				savedResult.feedbackText()
 		);
+	}
+
+	@Transactional(readOnly = true)
+	public JsonNode testAnalyze(
+			UploadFile uploadFile,
+			String word,
+			List<JsonNode> frames) {
+		if (word == null || word.isBlank()) {
+			throw new IllegalArgumentException("word는 필수입니다.");
+		}
+		if (frames == null || frames.isEmpty()) {
+			throw new IllegalArgumentException("frames는 필수입니다.");
+		}
+
+		Date expiration = new Date(System.currentTimeMillis() + PRESIGNED_URL_EXPIRES_IN_SECONDS * 1000);
+		URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), uploadFile.getS3Key(), expiration);
+		FastApiUploadRequest request = new FastApiUploadRequest(
+				word,
+				presignedUrl.toString(),
+				frames
+		);
+
+		return restClient.post()
+				.uri(analyzePath)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(request)
+				.retrieve()
+				.body(JsonNode.class);
 	}
 
 	private SavedAnalysisResult saveAnalysisResult(

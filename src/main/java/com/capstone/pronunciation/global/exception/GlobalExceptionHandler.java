@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.RestClientResponseException;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.SdkClientException;
@@ -51,6 +52,18 @@ public class GlobalExceptionHandler {
 		log.error("AWS client error: {}", e.getMessage(), e);
 		return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(
 				new ErrorResponse("AWS_CLIENT_ERROR", "AWS 연결에 실패했습니다. Access Key, Secret Key, 리전 설정을 확인하세요."));
+	}
+
+	@ExceptionHandler(RestClientResponseException.class)
+	public ResponseEntity<ErrorResponse> handleRestClientResponse(RestClientResponseException e) {
+		log.error("Upstream API error: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+		String responseBody = e.getResponseBodyAsString();
+		String message = "AI 서버 응답 오류: status=%s".formatted(e.getStatusCode());
+		if (responseBody != null && !responseBody.isBlank()) {
+			message += ", body=" + responseBody;
+		}
+		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+				.body(new ErrorResponse("UPSTREAM_API_ERROR", message));
 	}
 
 	@ExceptionHandler(Exception.class)
