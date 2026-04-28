@@ -10,7 +10,7 @@ import com.capstone.pronunciation.domain.upload.dto.FastApiTestAnalyzeRequest;
 import com.capstone.pronunciation.domain.upload.entity.UploadFile;
 import com.capstone.pronunciation.domain.upload.repository.UploadFileRepository;
 import com.capstone.pronunciation.domain.upload.service.FastApiUploadService;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
@@ -42,12 +42,8 @@ public class AiTestController {
 			@RequestBody(description = "AI 서버 테스트 요청 바디", required = true)
 			@org.springframework.web.bind.annotation.RequestBody FastApiTestAnalyzeRequest request) {
 		String username = extractUsername(authentication);
-		UploadFile uploadFile = uploadFileRepository.findById(uploadId)
-				.orElseThrow(() -> new IllegalArgumentException("업로드 파일을 찾을 수 없습니다."));
-
-		if (!uploadFile.getUser().getEmail().equals(username)) {
-			throw new IllegalArgumentException("본인 파일만 테스트할 수 있습니다.");
-		}
+		UploadFile uploadFile = uploadFileRepository.findByIdAndUser_Email(uploadId, username)
+				.orElseThrow(() -> new IllegalArgumentException("본인 업로드 파일을 찾을 수 없습니다."));
 
 		return fastApiUploadService.testAnalyze(uploadFile, request.word(), request.frames());
 	}

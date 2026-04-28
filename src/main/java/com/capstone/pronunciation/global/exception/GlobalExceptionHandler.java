@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageConversionException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -48,6 +49,13 @@ public class GlobalExceptionHandler {
 		log.warn("Unreadable request body: {}", e.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 				.body(new ErrorResponse("BAD_REQUEST", "요청 본문(JSON) 형식이 올바르지 않습니다."));
+	}
+
+	@ExceptionHandler(HttpMessageConversionException.class)
+	public ResponseEntity<ErrorResponse> handleMessageConversion(HttpMessageConversionException e) {
+		log.warn("Request/response conversion failed: {}", e.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse("BAD_REQUEST", "요청 본문(JSON) 타입이 올바르지 않습니다."));
 	}
 
 	@ExceptionHandler(AmazonServiceException.class)

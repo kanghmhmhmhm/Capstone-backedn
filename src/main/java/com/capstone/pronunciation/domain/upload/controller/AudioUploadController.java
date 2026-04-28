@@ -119,11 +119,8 @@ public class AudioUploadController {
 			Authentication authentication,
 			@PathVariable Long uploadId) {
 		String username = extractUsername(authentication);
-		UploadFile uploadFile = uploadFileRepository.findById(uploadId)
-				.orElseThrow(() -> new IllegalArgumentException("업로드 파일을 찾을 수 없습니다."));
-		if (!uploadFile.getUser().getEmail().equals(username)) {
-			throw new IllegalArgumentException("본인 파일만 조회할 수 있습니다.");
-		}
+		UploadFile uploadFile = uploadFileRepository.findByIdAndUser_Email(uploadId, username)
+				.orElseThrow(() -> new IllegalArgumentException("본인 업로드 파일을 찾을 수 없습니다."));
 
 		String key = uploadFile.getS3Key();
 		Date expiration = new Date(System.currentTimeMillis() + PRESIGNED_URL_EXPIRES_IN_SECONDS * 1000);

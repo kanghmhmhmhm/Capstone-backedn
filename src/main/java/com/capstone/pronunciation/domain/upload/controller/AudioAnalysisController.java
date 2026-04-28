@@ -42,12 +42,8 @@ public class AudioAnalysisController {
 			@RequestBody(description = "MediaPipe 프레임 데이터가 포함된 분석 요청 바디", required = true)
 			@org.springframework.web.bind.annotation.RequestBody SendToFastApiRequest request) {
 		String username = extractUsername(authentication);
-		UploadFile uploadFile = uploadFileRepository.findById(uploadId)
-				.orElseThrow(() -> new IllegalArgumentException("업로드 파일을 찾을 수 없습니다."));
-
-		if (!uploadFile.getUser().getEmail().equals(username)) {
-			throw new IllegalArgumentException("본인 파일만 전송할 수 있습니다.");
-		}
+		UploadFile uploadFile = uploadFileRepository.findByIdAndUser_Email(uploadId, username)
+				.orElseThrow(() -> new IllegalArgumentException("본인 업로드 파일을 찾을 수 없습니다."));
 
 		return fastApiUploadService.sendUpload(
 				uploadFile,

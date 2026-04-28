@@ -29,8 +29,8 @@ import com.capstone.pronunciation.domain.session.repository.LearningSessionRepos
 import com.capstone.pronunciation.domain.session.repository.PronunciationScoreRepository;
 import com.capstone.pronunciation.domain.session.repository.SessionResultRepository;
 import com.capstone.pronunciation.global.config.S3Config;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class FastApiUploadService {

@@ -4,8 +4,8 @@ import java.util.Collections;
 import java.util.List;
 
 import com.capstone.pronunciation.domain.curriculum.entity.CurriculumStage;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.*;
 
