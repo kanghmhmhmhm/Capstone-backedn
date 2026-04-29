@@ -42,8 +42,11 @@ public class AiTestController {
 			@RequestBody(description = "AI 서버 테스트 요청 바디", required = true)
 			@org.springframework.web.bind.annotation.RequestBody FastApiTestAnalyzeRequest request) {
 		String username = extractUsername(authentication);
-		UploadFile uploadFile = uploadFileRepository.findByIdAndUser_Email(uploadId, username)
-				.orElseThrow(() -> new IllegalArgumentException("본인 업로드 파일을 찾을 수 없습니다."));
+		UploadFile uploadFile = uploadFileRepository.findWithUserById(uploadId)
+				.orElseThrow(() -> new IllegalArgumentException("업로드 파일을 찾을 수 없습니다."));
+		if (!uploadFile.getUser().getEmail().equals(username)) {
+			throw new IllegalArgumentException("본인 업로드 파일을 찾을 수 없습니다.");
+		}
 
 		return fastApiUploadService.testAnalyze(uploadFile, request.word(), request.frames());
 	}

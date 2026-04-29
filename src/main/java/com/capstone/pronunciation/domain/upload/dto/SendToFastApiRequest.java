@@ -12,8 +12,8 @@ public record SendToFastApiRequest(
 		Long sessionId,
 		@Schema(description = "분석 대상 문제 ID", example = "103")
 		Long questionId,
-		@Schema(description = "문제의 정답 문장", example = "She sells seashells by the seashore.")
-		String expectedText,
+		@Schema(description = "AI 서버로 전달할 분석 대상 단어 또는 정답 문장", example = "keep")
+		String word,
 		@Schema(description = "사용자가 선택한 보기", example = "keep")
 		String selectedChoice,
 		@Schema(

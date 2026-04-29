@@ -1,7 +1,12 @@
 package com.capstone.pronunciation.domain.upload.service;
 
 import java.net.URL;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -10,7 +15,8 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.capstone.pronunciation.domain.feedback.entity.FeedbackLog;
@@ -36,10 +42,12 @@ import tools.jackson.databind.ObjectMapper;
 public class FastApiUploadService {
 
 	private static final long PRESIGNED_URL_EXPIRES_IN_SECONDS = 600;
+	private static final Logger log = LoggerFactory.getLogger(FastApiUploadService.class);
 
-	private final RestClient restClient;
+	private final HttpClient httpClient = HttpClient.newHttpClient();
 	private final AmazonS3 amazonS3;
 	private final S3Config s3Config;
+	private final String baseUrl;
 	private final String analyzePath;
 	private final LearningSessionRepository learningSessionRepository;
 	private final QuizQuestionRepository quizQuestionRepository;
@@ -60,9 +68,7 @@ public class FastApiUploadService {
 			PronunciationScoreRepository pronunciationScoreRepository,
 			AnswerSubmissionRepository answerSubmissionRepository,
 			FeedbackLogRepository feedbackLogRepository) {
-		this.restClient = RestClient.builder()
-				.baseUrl(baseUrl)
-				.build();
+		this.baseUrl = baseUrl;
 		this.amazonS3 = amazonS3;
 		this.s3Config = s3Config;
 		this.analyzePath = analyzePath;
@@ -79,7 +85,7 @@ public class FastApiUploadService {
 			UploadFile uploadFile,
 			Long sessionId,
 			Long questionId,
-			String expectedText,
+			String word,
 			String selectedChoice,
 			List<JsonNode> frames) {
 		if (sessionId == null) {
@@ -88,8 +94,8 @@ public class FastApiUploadService {
 		if (questionId == null) {
 			throw new IllegalArgumentException("questionId는 필수입니다.");
 		}
-		if (expectedText == null || expectedText.isBlank()) {
-			throw new IllegalArgumentException("expectedText는 필수입니다.");
+		if (word == null || word.isBlank()) {
+			throw new IllegalArgumentException("word는 필수입니다.");
 		}
 		if (frames == null || frames.isEmpty()) {
 			throw new IllegalArgumentException("frames는 필수입니다.");
@@ -97,29 +103,29 @@ public class FastApiUploadService {
 
 		Date expiration = new Date(System.currentTimeMillis() + PRESIGNED_URL_EXPIRES_IN_SECONDS * 1000);
 		URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), uploadFile.getS3Key(), expiration);
+		List<JsonNode> normalizedFrames = normalizeFrames(frames);
 
 		FastApiUploadRequest request = new FastApiUploadRequest(
-				expectedText,
+				word,
 				presignedUrl.toString(),
-				frames
+				normalizedFrames
 		);
+		logOutgoingRequest("sendUpload", request);
 
-		var responseEntity = restClient.post()
-				.uri(analyzePath)
-				.contentType(MediaType.APPLICATION_JSON)
-				.body(request)
-				.retrieve()
-				.toEntity(String.class);
+		String requestJson = toJson(request);
 
-		HttpStatusCode statusCode = responseEntity.getStatusCode();
-		JsonNode responseBody = parseResponseBody(responseEntity.getBody());
+		HttpExchangeResult responseEntity = executeAnalyzeRequest(requestJson);
+		logIncomingResponse("sendUpload", HttpStatusCode.valueOf(responseEntity.statusCode()), responseEntity.body());
+
+		HttpStatusCode statusCode = HttpStatusCode.valueOf(responseEntity.statusCode());
+		JsonNode responseBody = parseResponseBody(responseEntity.body());
 		SavedAnalysisResult savedResult = saveAnalysisResult(uploadFile, sessionId, questionId, selectedChoice, responseBody);
 
 		return new FastApiDispatchResponse(
 				uploadFile.getId(),
 				uploadFile.getObjectUrl(),
 				analyzePath,
-				statusCode.value(),
+				responseEntity.statusCode(),
 				savedResult.resultId(),
 				savedResult.score(),
 				savedResult.voiceScore(),
@@ -144,18 +150,19 @@ public class FastApiUploadService {
 
 		Date expiration = new Date(System.currentTimeMillis() + PRESIGNED_URL_EXPIRES_IN_SECONDS * 1000);
 		URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), uploadFile.getS3Key(), expiration);
+		List<JsonNode> normalizedFrames = normalizeFrames(frames);
 		FastApiUploadRequest request = new FastApiUploadRequest(
 				word,
 				presignedUrl.toString(),
-				frames
+				normalizedFrames
 		);
+		logOutgoingRequest("testAnalyze", request);
 
-		String responseBody = restClient.post()
-				.uri(analyzePath)
-				.contentType(MediaType.APPLICATION_JSON)
-				.body(request)
-				.retrieve()
-				.body(String.class);
+		String requestJson = toJson(request);
+
+		HttpExchangeResult responseEntity = executeAnalyzeRequest(requestJson);
+		String responseBody = responseEntity.body();
+		logIncomingResponse("testAnalyze", null, responseBody);
 
 		return parseResponseBody(responseBody);
 	}
@@ -169,23 +176,27 @@ public class FastApiUploadService {
 		if (responseBody == null || responseBody.isNull()) {
 			throw new IllegalStateException("FastAPI 응답 본문이 비어 있습니다.");
 		}
+		JsonNode analysisPayload = extractAnalysisPayload(responseBody);
 
 		LearningSession session = learningSessionRepository.findByIdAndUser_Id(sessionId, uploadFile.getUser().getId())
 				.orElseThrow(() -> new IllegalArgumentException("세션을 찾을 수 없습니다."));
 		QuizQuestion question = quizQuestionRepository.findById(questionId)
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
 
-		double finalScore = readRequiredScore(responseBody, path("overall_scores", "fused_score_0_100"));
-		double voiceScore = readRequiredScore(responseBody, path("overall_scores", "audio_score_0_100"));
-		double visionScore = readRequiredScore(responseBody, path("overall_scores", "visual_score_0_100"));
+		double finalScore = readRequiredScore(analysisPayload, path("overall_scores", "fused_score_0_100"));
+		double voiceScore = readRequiredScore(analysisPayload, path("overall_scores", "audio_score_0_100"));
+		double visionScore = readRequiredScore(analysisPayload, path("overall_scores", "visual_score_0_100"));
 
 		String transcript = readText(responseBody,
 				path("transcript"),
 				path("recognized_text"),
 				path("stt_text"),
 				path("word"));
+		if (transcript == null || transcript.isBlank()) {
+			transcript = readText(analysisPayload, path("word"));
+		}
 		String providerPayload = toJson(responseBody);
-		String feedbackText = deriveFeedbackText(responseBody);
+		String feedbackText = deriveFeedbackText(analysisPayload, responseBody);
 
 		SessionResult result = sessionResultRepository.save(new SessionResult(session, question, finalScore));
 		pronunciationScoreRepository.save(new PronunciationScore(result, voiceScore, visionScore));
@@ -214,7 +225,7 @@ public class FastApiUploadService {
 		);
 	}
 
-	private String deriveFeedbackText(JsonNode responseBody) {
+	private String deriveFeedbackText(JsonNode analysisPayload, JsonNode responseBody) {
 		String directFeedback = readText(responseBody,
 				path("feedback"),
 				path("feedback_text"),
@@ -223,17 +234,87 @@ public class FastApiUploadService {
 		if (directFeedback != null && !directFeedback.isBlank()) {
 			return directFeedback;
 		}
-
-		String overallBand = readText(responseBody, path("overall_scores", "overall_band"));
-		int weakestCount = readInt(responseBody, path("summary", "weakest_count"));
-		int mismatchCount = readInt(responseBody, path("summary", "mismatch_count"));
-
-		if (overallBand != null && !overallBand.isBlank()) {
-			return "AI 발음 분석 완료: overall_band=%s, weakest=%d, mismatches=%d"
-					.formatted(overallBand, weakestCount, mismatchCount);
+		directFeedback = readText(analysisPayload,
+				path("feedback"),
+				path("feedback_text"),
+				path("summary_text"));
+		if (directFeedback != null && !directFeedback.isBlank()) {
+			return directFeedback;
 		}
 
-		return "AI 발음 분석 완료";
+		String overallBand = readText(analysisPayload, path("overall_scores", "overall_band"));
+		int weakCount = readInt(analysisPayload, path("summary", "weak_count"));
+		int mismatchCount = readInt(analysisPayload, path("summary", "mismatch_count"));
+		String praisePoint = readText(analysisPayload, path("llm_context", "praise_point"));
+		String keyIssuePhoneme = readText(analysisPayload, path("llm_context", "key_issues", "0", "phoneme"));
+		String howToFix = readText(analysisPayload, path("llm_context", "key_issues", "0", "how_to_fix"));
+
+		StringBuilder summary = new StringBuilder("AI 발음 분석 완료");
+		if (overallBand != null && !overallBand.isBlank()) {
+			summary.append(": overall_band=").append(overallBand);
+		}
+		summary.append(", weak=").append(weakCount)
+				.append(", mismatches=").append(mismatchCount);
+		if (praisePoint != null && !praisePoint.isBlank()) {
+			summary.append(". ").append(praisePoint);
+		}
+		if (keyIssuePhoneme != null && !keyIssuePhoneme.isBlank()) {
+			summary.append(" 핵심 교정 음소는 /").append(keyIssuePhoneme).append("/ 입니다.");
+		}
+		if (howToFix != null && !howToFix.isBlank()) {
+			summary.append(" ").append(howToFix);
+		}
+
+		return summary.toString();
+	}
+
+	private JsonNode extractAnalysisPayload(JsonNode responseBody) {
+		JsonNode nestedPayload = readNode(responseBody, path("feedback_payload"));
+		if (nestedPayload != null && !nestedPayload.isMissingNode() && !nestedPayload.isNull()) {
+			return nestedPayload;
+		}
+		return responseBody;
+	}
+
+	private List<JsonNode> normalizeFrames(List<JsonNode> frames) {
+		List<JsonNode> normalizedFrames = new ArrayList<>();
+		for (JsonNode frame : frames) {
+			if (frame == null || frame.isNull()) {
+				continue;
+			}
+
+			JsonNode tMs = readNode(frame, path("t_ms"));
+			if (tMs == null || tMs.isMissingNode() || tMs.isNull()) {
+				tMs = readNode(frame, path("timestampMs"));
+			}
+
+			JsonNode faceLandmarks = readNode(frame, path("face_landmarks"));
+			if (faceLandmarks == null || faceLandmarks.isMissingNode() || faceLandmarks.isNull()) {
+				faceLandmarks = readNode(frame, path("landmarks"));
+			}
+
+			JsonNode faceBlendshapes = readNode(frame, path("face_blendshapes"));
+			if (faceBlendshapes == null || faceBlendshapes.isMissingNode() || faceBlendshapes.isNull()) {
+				faceBlendshapes = objectMapper.createObjectNode();
+			}
+			if (faceLandmarks == null || faceLandmarks.isMissingNode() || faceLandmarks.isNull()) {
+				faceLandmarks = objectMapper.createArrayNode();
+			}
+
+			var normalized = objectMapper.createObjectNode();
+			normalized.set("t_ms", tMs != null && !tMs.isMissingNode() && !tMs.isNull()
+					? tMs
+					: objectMapper.getNodeFactory().numberNode(0));
+			normalized.set("face_landmarks", faceLandmarks);
+			normalized.set("face_blendshapes", faceBlendshapes);
+			normalizedFrames.add(normalized);
+		}
+
+		if (normalizedFrames.isEmpty()) {
+			throw new IllegalArgumentException("frames는 비어있지 않은 배열이어야 합니다.");
+		}
+
+		return normalizedFrames;
 	}
 
 	private double readRequiredScore(JsonNode root, String[] path) {
@@ -281,9 +362,9 @@ public class FastApiUploadService {
 		return current;
 	}
 
-	private String toJson(JsonNode responseBody) {
+	private String toJson(Object payload) {
 		try {
-			return objectMapper.writeValueAsString(responseBody);
+			return objectMapper.writeValueAsString(payload);
 		} catch (Exception e) {
 			throw new IllegalStateException("FastAPI 응답 JSON 직렬화에 실패했습니다.", e);
 		}
@@ -310,6 +391,57 @@ public class FastApiUploadService {
 		return Math.round(bounded * 10.0) / 10.0;
 	}
 
+	private HttpExchangeResult executeAnalyzeRequest(String requestJson) {
+		try {
+			HttpRequest request = HttpRequest.newBuilder(buildAnalyzeUri())
+					.header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+					.header("Accept", MediaType.APPLICATION_JSON_VALUE)
+					.POST(HttpRequest.BodyPublishers.ofString(requestJson))
+					.build();
+
+			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+			int statusCode = response.statusCode();
+			String responseBody = response.body();
+
+			if (statusCode >= 400) {
+				throw new org.springframework.web.client.HttpClientErrorException(
+						HttpStatusCode.valueOf(statusCode),
+						"Upstream error",
+						null,
+						responseBody == null ? new byte[0] : responseBody.getBytes(),
+						null
+				);
+			}
+
+			return new HttpExchangeResult(statusCode, responseBody);
+		} catch (org.springframework.web.client.HttpClientErrorException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new IllegalStateException("AI 서버 HTTP 요청에 실패했습니다.", e);
+		}
+	}
+
+	private URI buildAnalyzeUri() {
+		String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+		String normalizedPath = analyzePath.startsWith("/") ? analyzePath : "/" + analyzePath;
+		return URI.create(normalizedBaseUrl + normalizedPath);
+	}
+
+	private void logOutgoingRequest(String source, FastApiUploadRequest request) {
+		try {
+			log.info("FastAPI {} request payload: {}", source, objectMapper.writeValueAsString(request));
+		} catch (Exception e) {
+			log.warn("FastAPI {} request payload logging failed", source, e);
+		}
+	}
+
+	private void logIncomingResponse(String source, HttpStatusCode statusCode, String responseBody) {
+		if (statusCode != null) {
+			log.info("FastAPI {} response status: {}", source, statusCode.value());
+		}
+		log.info("FastAPI {} response body: {}", source, responseBody);
+	}
+
 	private record SavedAnalysisResult(
 			Long resultId,
 			Double score,
@@ -318,6 +450,12 @@ public class FastApiUploadService {
 			String transcript,
 			String selectedChoice,
 			String feedbackText
+	) {
+	}
+
+	private record HttpExchangeResult(
+			int statusCode,
+			String body
 	) {
 	}
 }

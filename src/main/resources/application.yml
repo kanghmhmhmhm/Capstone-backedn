@@ -25,8 +25,9 @@ app:
     # 예) https://my-frontend.example.com,http://localhost:5173
     allowed-origin-patterns: ${APP_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
   fastapi:
-    base-url: ${FASTAPI_BASE_URL:}
-    analyze-path: ${FASTAPI_ANALYZE_PATH:}
+    base-url: ${FASTAPI_BASE_URL:http://13.209.89.223:8000}
+    analyze-path: ${FASTAPI_ANALYZE_PATH:/analyze}
+
 
 cloud:
   aws:
