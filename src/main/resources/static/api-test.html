@@ -311,7 +311,7 @@
 
       <div class="card">
         <h2>4-1. AI 테스트 요청</h2>
-        <div class="hint">DB 저장 없이 업로드한 오디오를 바로 AI 서버로 보내 응답 원문만 확인합니다. 연동 확인용으로 가장 빠른 버튼입니다.</div>
+        <div class="hint">DB 저장 없이 업로드한 오디오를 바로 AI 서버로 보내 응답 원문만 확인합니다. 최종 AI 요청 구조는 <code>word</code>, <code>audio_url</code>, <code>frames</code> 입니다. <code>audio_url</code>을 비워두면 Spring이 uploadId 기준으로 presigned URL을 자동 생성합니다.</div>
         <span class="endpoint">/api/test/ai/audio/{uploadId}/analyze</span>
 
         <label for="test_uploadId">Upload ID</label>
@@ -319,6 +319,9 @@
 
         <label for="test_word">Word</label>
         <input id="test_word" placeholder="예: keep" />
+
+        <label for="test_audioUrl">Audio URL</label>
+        <textarea id="test_audioUrl" rows="3" placeholder="비워두면 uploadId 기준 presigned URL 자동 생성"></textarea>
 
         <label for="test_frames">Frames JSON</label>
         <textarea id="test_frames" rows="10"></textarea>
@@ -798,6 +801,7 @@
       try {
         const uploadId = document.getElementById('test_uploadId').value || getUploadId();
         const word = document.getElementById('test_word').value.trim() || getExpectedText();
+        const audioUrl = document.getElementById('test_audioUrl').value.trim();
         const framesText = document.getElementById('test_frames').value.trim();
 
         if (!uploadId) throw { message: '업로드 ID가 필요합니다. 먼저 음성을 업로드하세요.' };
@@ -815,6 +819,7 @@
           method: 'POST',
           json: {
             word,
+            audioUrl: audioUrl || null,
             frames
           }
         });

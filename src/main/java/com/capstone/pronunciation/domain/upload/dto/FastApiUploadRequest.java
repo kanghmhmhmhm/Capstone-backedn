@@ -2,7 +2,6 @@ package com.capstone.pronunciation.domain.upload.dto;
 
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import tools.jackson.databind.JsonNode;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -11,7 +10,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record FastApiUploadRequest(
 		@Schema(description = "분석 대상 단어 또는 정답 문장", example = "keep")
 		String word,
-		@JsonProperty("audio_url")
 		@Schema(description = "AI 서버가 직접 내려받을 presigned audio URL", example = "https://bucket.s3.ap-northeast-2.amazonaws.com/audio/sample.mp3")
 		String audioUrl,
 		@Schema(

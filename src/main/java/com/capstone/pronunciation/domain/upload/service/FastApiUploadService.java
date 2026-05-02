@@ -2,9 +2,8 @@ package com.capstone.pronunciation.domain.upload.service;
 
 import java.net.URL;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.HttpURLConnection;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
@@ -15,15 +14,14 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientResponseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.capstone.pronunciation.domain.feedback.entity.FeedbackLog;
 import com.capstone.pronunciation.domain.feedback.repository.FeedbackLogRepository;
-import com.capstone.pronunciation.domain.upload.dto.FastApiDispatchResponse;
-import com.capstone.pronunciation.domain.upload.dto.FastApiUploadRequest;
-import com.capstone.pronunciation.domain.upload.entity.UploadFile;
 import com.capstone.pronunciation.domain.quiz.entity.QuizQuestion;
 import com.capstone.pronunciation.domain.quiz.repository.QuizQuestionRepository;
 import com.capstone.pronunciation.domain.session.entity.AnswerSubmission;
@@ -34,6 +32,9 @@ import com.capstone.pronunciation.domain.session.repository.AnswerSubmissionRepo
 import com.capstone.pronunciation.domain.session.repository.LearningSessionRepository;
 import com.capstone.pronunciation.domain.session.repository.PronunciationScoreRepository;
 import com.capstone.pronunciation.domain.session.repository.SessionResultRepository;
+import com.capstone.pronunciation.domain.upload.dto.FastApiDispatchResponse;
+import com.capstone.pronunciation.domain.upload.dto.FastApiUploadRequest;
+import com.capstone.pronunciation.domain.upload.entity.UploadFile;
 import com.capstone.pronunciation.global.config.S3Config;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -44,7 +45,6 @@ public class FastApiUploadService {
 	private static final long PRESIGNED_URL_EXPIRES_IN_SECONDS = 600;
 	private static final Logger log = LoggerFactory.getLogger(FastApiUploadService.class);
 
-	private final HttpClient httpClient = HttpClient.newHttpClient();
 	private final AmazonS3 amazonS3;
 	private final S3Config s3Config;
 	private final String baseUrl;
@@ -110,9 +110,8 @@ public class FastApiUploadService {
 				presignedUrl.toString(),
 				normalizedFrames
 		);
-		logOutgoingRequest("sendUpload", request);
-
-		String requestJson = toJson(request);
+		String requestJson = buildAnalyzeRequestJson(request);
+		logOutgoingRequest("sendUpload", requestJson);
 
 		HttpExchangeResult responseEntity = executeAnalyzeRequest(requestJson);
 		logIncomingResponse("sendUpload", HttpStatusCode.valueOf(responseEntity.statusCode()), responseEntity.body());
@@ -140,6 +139,7 @@ public class FastApiUploadService {
 	public JsonNode testAnalyze(
 			UploadFile uploadFile,
 			String word,
+			String audioUrl,
 			List<JsonNode> frames) {
 		if (word == null || word.isBlank()) {
 			throw new IllegalArgumentException("word는 필수입니다.");
@@ -148,17 +148,20 @@ public class FastApiUploadService {
 			throw new IllegalArgumentException("frames는 필수입니다.");
 		}
 
-		Date expiration = new Date(System.currentTimeMillis() + PRESIGNED_URL_EXPIRES_IN_SECONDS * 1000);
-		URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), uploadFile.getS3Key(), expiration);
+		String resolvedAudioUrl = audioUrl;
+		if (resolvedAudioUrl == null || resolvedAudioUrl.isBlank()) {
+			Date expiration = new Date(System.currentTimeMillis() + PRESIGNED_URL_EXPIRES_IN_SECONDS * 1000);
+			URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), uploadFile.getS3Key(), expiration);
+			resolvedAudioUrl = presignedUrl.toString();
+		}
 		List<JsonNode> normalizedFrames = normalizeFrames(frames);
 		FastApiUploadRequest request = new FastApiUploadRequest(
 				word,
-				presignedUrl.toString(),
+				resolvedAudioUrl,
 				normalizedFrames
 		);
-		logOutgoingRequest("testAnalyze", request);
-
-		String requestJson = toJson(request);
+		String requestJson = buildAnalyzeRequestJson(request);
+		logOutgoingRequest("testAnalyze", requestJson);
 
 		HttpExchangeResult responseEntity = executeAnalyzeRequest(requestJson);
 		String responseBody = responseEntity.body();
@@ -370,6 +373,18 @@ public class FastApiUploadService {
 		}
 	}
 
+	private String buildAnalyzeRequestJson(FastApiUploadRequest request) {
+		try {
+			var payload = objectMapper.createObjectNode();
+			payload.put("word", request.word());
+			payload.put("audio_url", request.audioUrl());
+			payload.set("frames", objectMapper.valueToTree(request.frames()));
+			return objectMapper.writeValueAsString(payload);
+		} catch (Exception e) {
+			throw new IllegalStateException("FastAPI 요청 JSON 직렬화에 실패했습니다.", e);
+		}
+	}
+
 	private static String[] path(String... values) {
 		return values;
 	}
@@ -392,32 +407,60 @@ public class FastApiUploadService {
 	}
 
 	private HttpExchangeResult executeAnalyzeRequest(String requestJson) {
+		URI analyzeUri = buildAnalyzeUri();
+		HttpURLConnection connection = null;
 		try {
-			HttpRequest request = HttpRequest.newBuilder(buildAnalyzeUri())
-					.header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-					.header("Accept", MediaType.APPLICATION_JSON_VALUE)
-					.POST(HttpRequest.BodyPublishers.ofString(requestJson))
-					.build();
+			byte[] requestBytes = requestJson.getBytes(StandardCharsets.UTF_8);
+			log.info("FastAPI analyze target: uri={}, payloadLength={}", analyzeUri, requestJson == null ? 0 : requestJson.length());
+			connection = (HttpURLConnection) analyzeUri.toURL().openConnection();
+			connection.setRequestMethod("POST");
+			connection.setDoOutput(true);
+			connection.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+			connection.setRequestProperty("Accept", MediaType.APPLICATION_JSON_VALUE);
+			connection.setFixedLengthStreamingMode(requestBytes.length);
 
-			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-			int statusCode = response.statusCode();
-			String responseBody = response.body();
+			try (var outputStream = connection.getOutputStream()) {
+				outputStream.write(requestBytes);
+			}
+
+			int statusCode = connection.getResponseCode();
+			String responseBody = readResponseBody(connection, statusCode);
 
 			if (statusCode >= 400) {
-				throw new org.springframework.web.client.HttpClientErrorException(
+				throw new HttpClientErrorException(
 						HttpStatusCode.valueOf(statusCode),
-						"Upstream error",
+						connection.getResponseMessage(),
 						null,
-						responseBody == null ? new byte[0] : responseBody.getBytes(),
-						null
+						responseBody == null ? new byte[0] : responseBody.getBytes(StandardCharsets.UTF_8),
+						StandardCharsets.UTF_8
 				);
 			}
 
 			return new HttpExchangeResult(statusCode, responseBody);
-		} catch (org.springframework.web.client.HttpClientErrorException e) {
+		} catch (RestClientResponseException e) {
+			log.warn(
+					"FastAPI analyze request failed: uri={}, status={}, body={}",
+					analyzeUri,
+					e.getStatusCode(),
+					e.getResponseBodyAsString()
+			);
 			throw e;
 		} catch (Exception e) {
 			throw new IllegalStateException("AI 서버 HTTP 요청에 실패했습니다.", e);
+		} finally {
+			if (connection != null) {
+				connection.disconnect();
+			}
+		}
+	}
+
+	private String readResponseBody(HttpURLConnection connection, int statusCode) throws Exception {
+		var inputStream = statusCode >= 400 ? connection.getErrorStream() : connection.getInputStream();
+		if (inputStream == null) {
+			return "";
+		}
+		try (inputStream) {
+			return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
 		}
 	}
 
@@ -427,12 +470,8 @@ public class FastApiUploadService {
 		return URI.create(normalizedBaseUrl + normalizedPath);
 	}
 
-	private void logOutgoingRequest(String source, FastApiUploadRequest request) {
-		try {
-			log.info("FastAPI {} request payload: {}", source, objectMapper.writeValueAsString(request));
-		} catch (Exception e) {
-			log.warn("FastAPI {} request payload logging failed", source, e);
-		}
+	private void logOutgoingRequest(String source, String requestJson) {
+		log.info("FastAPI {} request payload: {}", source, requestJson);
 	}
 
 	private void logIncomingResponse(String source, HttpStatusCode statusCode, String responseBody) {

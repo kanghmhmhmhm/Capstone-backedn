@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.capstone.pronunciation.domain.upload.dto.FastApiTestAnalyzeRequest;
 import com.capstone.pronunciation.domain.upload.entity.UploadFile;
 import com.capstone.pronunciation.domain.upload.repository.UploadFileRepository;
 import com.capstone.pronunciation.domain.upload.service.FastApiUploadService;
@@ -40,7 +39,7 @@ public class AiTestController {
 			Authentication authentication,
 			@PathVariable Long uploadId,
 			@RequestBody(description = "AI 서버 테스트 요청 바디", required = true)
-			@org.springframework.web.bind.annotation.RequestBody FastApiTestAnalyzeRequest request) {
+			@org.springframework.web.bind.annotation.RequestBody JsonNode request) {
 		String username = extractUsername(authentication);
 		UploadFile uploadFile = uploadFileRepository.findWithUserById(uploadId)
 				.orElseThrow(() -> new IllegalArgumentException("업로드 파일을 찾을 수 없습니다."));
@@ -48,7 +47,34 @@ public class AiTestController {
 			throw new IllegalArgumentException("본인 업로드 파일을 찾을 수 없습니다.");
 		}
 
-		return fastApiUploadService.testAnalyze(uploadFile, request.word(), request.frames());
+		String word = readText(request, "word");
+		String audioUrl = readText(request, "audioUrl");
+		if (audioUrl == null || audioUrl.isBlank()) {
+			audioUrl = readText(request, "audio_url");
+		}
+		JsonNode framesNode = request == null ? null : request.path("frames");
+		if (framesNode == null || !framesNode.isArray()) {
+			throw new IllegalArgumentException("frames는 배열이어야 합니다.");
+		}
+
+		java.util.List<JsonNode> frames = new java.util.ArrayList<>();
+		for (JsonNode frame : framesNode) {
+			frames.add(frame);
+		}
+
+		return fastApiUploadService.testAnalyze(uploadFile, word, audioUrl, frames);
+	}
+
+	private String readText(JsonNode root, String fieldName) {
+		if (root == null) {
+			return null;
+		}
+		JsonNode node = root.path(fieldName);
+		if (node.isMissingNode() || node.isNull()) {
+			return null;
+		}
+		String value = node.asText(null);
+		return value == null || value.isBlank() ? null : value;
 	}
 
 	private String extractUsername(Authentication authentication) {
