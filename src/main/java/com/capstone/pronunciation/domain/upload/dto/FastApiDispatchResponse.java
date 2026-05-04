@@ -1,5 +1,7 @@
 package com.capstone.pronunciation.domain.upload.dto;
 
+import tools.jackson.databind.JsonNode;
+
 public record FastApiDispatchResponse(
 		Long uploadId,
 		String audioUrl,
@@ -10,7 +12,13 @@ public record FastApiDispatchResponse(
 		Double voiceScore,
 		Double visionScore,
 		String transcript,
+		String recognizedText,
 		String selectedChoice,
-		String feedbackText
+		String feedbackText,
+		String overallBand,
+		JsonNode phonemeFeedback,
+		JsonNode mouthComparisonAssets,
+		JsonNode llmFeedbackByMode,
+		JsonNode feedbackPayload
 ) {
 }

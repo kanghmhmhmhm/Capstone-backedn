@@ -1,6 +1,7 @@
 package com.capstone.pronunciation.domain.user.dto;
 
 import java.time.Instant;
+import java.util.List;
 
 public record MyPageSummaryResponse(
 		Long userId,
@@ -12,6 +13,12 @@ public record MyPageSummaryResponse(
 		long completedSessions,
 		long totalSolvedQuestions,
 		Double averageScore,
-		Instant lastStudiedAt
+		Instant lastStudiedAt,
+		long learningStreak,
+		List<UserBadgeResponse> badges,
+		List<MyPageQuestionSummaryResponse> askedQuestions,
+		List<UserWeeklyActivityResponse> weeklyActivity,
+		String bestWeakPhoneme,
+		Double improvementRate
 ) {
 }

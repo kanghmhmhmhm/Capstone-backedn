@@ -12,6 +12,12 @@ public record DashboardSummaryResponse(
 		long recentStudyCount,
 		Double averageScore,
 		List<WeakPhonemeResponse> weakPhonemes,
-		List<DashboardStageSummaryResponse> stageProgress
+		List<DashboardStageSummaryResponse> stageProgress,
+		List<DashboardWeeklyProgressResponse> weeklyProgress,
+		List<DashboardRecentResultResponse> recentResults,
+		List<DashboardReviewNoteResponse> reviewNotes,
+		List<DashboardHeatmapCellResponse> calendarHeatmap,
+		Double dailyScore,
+		DashboardTodayQuestionResponse todayQuestion
 ) {
 }

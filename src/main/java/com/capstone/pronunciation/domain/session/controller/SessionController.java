@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.capstone.pronunciation.domain.session.dto.SessionEndResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionProgressResponse;
+import com.capstone.pronunciation.domain.session.dto.SessionResumeResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionStartRequest;
 import com.capstone.pronunciation.domain.session.dto.SessionStartResponse;
 import com.capstone.pronunciation.domain.session.service.SessionService;
@@ -46,6 +47,15 @@ public class SessionController {
 	)
 	public SessionEndResponse endSession(Authentication authentication, @PathVariable Long sessionId) {
 		return sessionService.endSession(authentication.getName(), sessionId);
+	}
+
+	@GetMapping("/{sessionId}")
+	@Operation(
+			summary = "[프론트 사용] 학습 세션 상세 재진입",
+			description = "새로고침 또는 학습 화면 재진입 시 세션의 문제 목록, 현재 문제, 제출된 결과를 한 번에 복원합니다."
+	)
+	public SessionResumeResponse sessionResume(Authentication authentication, @PathVariable Long sessionId) {
+		return sessionService.sessionResume(authentication.getName(), sessionId);
 	}
 
 	@GetMapping("/{sessionId}/progress")

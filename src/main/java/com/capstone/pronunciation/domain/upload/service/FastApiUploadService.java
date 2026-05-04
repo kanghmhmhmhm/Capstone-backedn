@@ -7,7 +7,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
@@ -32,8 +35,10 @@ import com.capstone.pronunciation.domain.session.repository.AnswerSubmissionRepo
 import com.capstone.pronunciation.domain.session.repository.LearningSessionRepository;
 import com.capstone.pronunciation.domain.session.repository.PronunciationScoreRepository;
 import com.capstone.pronunciation.domain.session.repository.SessionResultRepository;
+import com.capstone.pronunciation.domain.upload.dto.FastApiAnalyzeRequest;
 import com.capstone.pronunciation.domain.upload.dto.FastApiDispatchResponse;
-import com.capstone.pronunciation.domain.upload.dto.FastApiUploadRequest;
+import com.capstone.pronunciation.domain.upload.dto.FastApiLandmark;
+import com.capstone.pronunciation.domain.upload.dto.FastApiRawFrame;
 import com.capstone.pronunciation.domain.upload.entity.UploadFile;
 import com.capstone.pronunciation.global.config.S3Config;
 import tools.jackson.databind.JsonNode;
@@ -103,11 +108,11 @@ public class FastApiUploadService {
 
 		Date expiration = new Date(System.currentTimeMillis() + PRESIGNED_URL_EXPIRES_IN_SECONDS * 1000);
 		URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), uploadFile.getS3Key(), expiration);
-		List<JsonNode> normalizedFrames = normalizeFrames(frames);
+		List<FastApiRawFrame> normalizedFrames = normalizeFrames(frames);
 
-		FastApiUploadRequest request = new FastApiUploadRequest(
+		FastApiAnalyzeRequest request = new FastApiAnalyzeRequest(
 				word,
-				presignedUrl.toString(),
+				normalizeAudioUrl(presignedUrl.toString()),
 				normalizedFrames
 		);
 		String requestJson = buildAnalyzeRequestJson(request);
@@ -130,8 +135,14 @@ public class FastApiUploadService {
 				savedResult.voiceScore(),
 				savedResult.visionScore(),
 				savedResult.transcript(),
+				savedResult.transcript(),
 				savedResult.selectedChoice(),
-				savedResult.feedbackText()
+				savedResult.feedbackText(),
+				savedResult.overallBand(),
+				savedResult.phonemeFeedback(),
+				savedResult.mouthComparisonAssets(),
+				savedResult.llmFeedbackByMode(),
+				savedResult.feedbackPayload()
 		);
 	}
 
@@ -154,10 +165,10 @@ public class FastApiUploadService {
 			URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), uploadFile.getS3Key(), expiration);
 			resolvedAudioUrl = presignedUrl.toString();
 		}
-		List<JsonNode> normalizedFrames = normalizeFrames(frames);
-		FastApiUploadRequest request = new FastApiUploadRequest(
+		List<FastApiRawFrame> normalizedFrames = normalizeFrames(frames);
+		FastApiAnalyzeRequest request = new FastApiAnalyzeRequest(
 				word,
-				resolvedAudioUrl,
+				normalizeAudioUrl(resolvedAudioUrl),
 				normalizedFrames
 		);
 		String requestJson = buildAnalyzeRequestJson(request);
@@ -200,6 +211,7 @@ public class FastApiUploadService {
 		}
 		String providerPayload = toJson(responseBody);
 		String feedbackText = deriveFeedbackText(analysisPayload, responseBody);
+		String overallBand = readText(analysisPayload, path("overall_scores", "overall_band"));
 
 		SessionResult result = sessionResultRepository.save(new SessionResult(session, question, finalScore));
 		pronunciationScoreRepository.save(new PronunciationScore(result, voiceScore, visionScore));
@@ -224,7 +236,25 @@ public class FastApiUploadService {
 				visionScore,
 				transcript,
 				selectedChoice,
-				feedbackText
+				feedbackText,
+				overallBand,
+				firstPresentNode(
+						analysisPayload,
+						path("phoneme_diagnostics"),
+						path("summary", "phoneme_feedback"),
+						path("feedback", "phoneme_feedback")),
+				firstPresentNode(
+						analysisPayload,
+						path("mouth_comparison_assets"),
+						path("mouth_feedback"),
+						path("viseme_comparison"),
+						path("visual_feedback")),
+				firstPresentNode(
+						analysisPayload,
+						path("llm_feedback_by_mode"),
+						path("llm_context"),
+						path("feedback_by_mode")),
+				analysisPayload
 		);
 	}
 
@@ -279,8 +309,9 @@ public class FastApiUploadService {
 		return responseBody;
 	}
 
-	private List<JsonNode> normalizeFrames(List<JsonNode> frames) {
-		List<JsonNode> normalizedFrames = new ArrayList<>();
+	private List<FastApiRawFrame> normalizeFrames(List<JsonNode> frames) {
+		List<FastApiRawFrame> normalizedFrames = new ArrayList<>();
+		boolean hasLandmarks = false;
 		for (JsonNode frame : frames) {
 			if (frame == null || frame.isNull()) {
 				continue;
@@ -290,34 +321,123 @@ public class FastApiUploadService {
 			if (tMs == null || tMs.isMissingNode() || tMs.isNull()) {
 				tMs = readNode(frame, path("timestampMs"));
 			}
+			if (tMs == null || tMs.isMissingNode() || tMs.isNull()) {
+				tMs = readNode(frame, path("tMs"));
+			}
+			if (tMs == null || tMs.isMissingNode() || tMs.isNull()) {
+				tMs = readNode(frame, path("timeMs"));
+			}
 
 			JsonNode faceLandmarks = readNode(frame, path("face_landmarks"));
 			if (faceLandmarks == null || faceLandmarks.isMissingNode() || faceLandmarks.isNull()) {
 				faceLandmarks = readNode(frame, path("landmarks"));
 			}
+			if (faceLandmarks == null || faceLandmarks.isMissingNode() || faceLandmarks.isNull()) {
+				faceLandmarks = readNode(frame, path("faceLandmarks"));
+			}
 
 			JsonNode faceBlendshapes = readNode(frame, path("face_blendshapes"));
 			if (faceBlendshapes == null || faceBlendshapes.isMissingNode() || faceBlendshapes.isNull()) {
+				faceBlendshapes = readNode(frame, path("blendshapes"));
+			}
+			if (faceBlendshapes == null || faceBlendshapes.isMissingNode() || faceBlendshapes.isNull()) {
+				faceBlendshapes = readNode(frame, path("faceBlendshapes"));
+			}
+			if (faceBlendshapes == null || faceBlendshapes.isMissingNode() || faceBlendshapes.isNull()) {
 				faceBlendshapes = objectMapper.createObjectNode();
 			}
-			if (faceLandmarks == null || faceLandmarks.isMissingNode() || faceLandmarks.isNull()) {
-				faceLandmarks = objectMapper.createArrayNode();
-			}
 
-			var normalized = objectMapper.createObjectNode();
-			normalized.set("t_ms", tMs != null && !tMs.isMissingNode() && !tMs.isNull()
-					? tMs
-					: objectMapper.getNodeFactory().numberNode(0));
-			normalized.set("face_landmarks", faceLandmarks);
-			normalized.set("face_blendshapes", faceBlendshapes);
-			normalizedFrames.add(normalized);
+			List<FastApiLandmark> landmarks = normalizeLandmarks(faceLandmarks);
+			Map<String, Double> blendshapeMap = normalizeBlendshapes(faceBlendshapes);
+			hasLandmarks = hasLandmarks || !landmarks.isEmpty();
+
+			normalizedFrames.add(new FastApiRawFrame(
+					tMs != null && !tMs.isMissingNode() && !tMs.isNull() ? tMs.asDouble(0.0) : 0.0,
+					landmarks,
+					blendshapeMap
+			));
 		}
 
 		if (normalizedFrames.isEmpty()) {
 			throw new IllegalArgumentException("frames는 비어있지 않은 배열이어야 합니다.");
 		}
+		if (!hasLandmarks) {
+			throw new IllegalArgumentException("frames에는 face_landmarks가 포함된 프레임이 최소 1개 이상 필요합니다.");
+		}
 
 		return normalizedFrames;
+	}
+
+	private List<FastApiLandmark> normalizeLandmarks(JsonNode faceLandmarks) {
+		List<FastApiLandmark> landmarks = new ArrayList<>();
+		if (faceLandmarks == null || faceLandmarks.isMissingNode() || faceLandmarks.isNull() || !faceLandmarks.isArray()) {
+			return landmarks;
+		}
+
+		for (JsonNode landmark : faceLandmarks) {
+			if (landmark == null || landmark.isNull() || !landmark.isObject()) {
+				continue;
+			}
+			JsonNode xNode = landmark.path("x");
+			JsonNode yNode = landmark.path("y");
+			JsonNode zNode = landmark.path("z");
+			if (!xNode.isNumber() || !yNode.isNumber() || !zNode.isNumber()) {
+				continue;
+			}
+			landmarks.add(new FastApiLandmark(
+					xNode.asDouble(),
+					yNode.asDouble(),
+					zNode.asDouble()
+			));
+		}
+		return landmarks;
+	}
+
+	private Map<String, Double> normalizeBlendshapes(JsonNode faceBlendshapes) {
+		Map<String, Double> blendshapes = new LinkedHashMap<>();
+		if (faceBlendshapes == null || faceBlendshapes.isMissingNode() || faceBlendshapes.isNull()) {
+			return blendshapes;
+		}
+
+		if (faceBlendshapes.isObject()) {
+			for (Map.Entry<String, JsonNode> entry : faceBlendshapes.properties()) {
+				if (entry.getValue() != null && entry.getValue().isNumber()) {
+					blendshapes.put(entry.getKey(), entry.getValue().asDouble());
+				}
+			}
+			return blendshapes;
+		}
+
+		if (!faceBlendshapes.isArray()) {
+			return blendshapes;
+		}
+
+		for (JsonNode item : faceBlendshapes) {
+			if (item == null || item.isNull()) {
+				continue;
+			}
+			if (item.isArray()) {
+				for (JsonNode nested : item) {
+					putBlendshapeIfPresent(blendshapes, nested);
+				}
+				continue;
+			}
+			putBlendshapeIfPresent(blendshapes, item);
+		}
+
+		return blendshapes;
+	}
+
+	private void putBlendshapeIfPresent(Map<String, Double> blendshapes, JsonNode item) {
+		if (item == null || item.isNull() || !item.isObject()) {
+			return;
+		}
+		String key = readText(item, path("categoryName"), path("displayName"), path("name"));
+		JsonNode scoreNode = readNode(item, path("score"));
+		if (key == null || key.isBlank() || scoreNode == null || !scoreNode.isNumber()) {
+			return;
+		}
+		blendshapes.put(key, scoreNode.asDouble());
 	}
 
 	private double readRequiredScore(JsonNode root, String[] path) {
@@ -365,6 +485,16 @@ public class FastApiUploadService {
 		return current;
 	}
 
+	private JsonNode firstPresentNode(JsonNode root, String[]... paths) {
+		for (String[] path : paths) {
+			JsonNode node = readNode(root, path);
+			if (node != null && !node.isMissingNode() && !node.isNull()) {
+				return node;
+			}
+		}
+		return null;
+	}
+
 	private String toJson(Object payload) {
 		try {
 			return objectMapper.writeValueAsString(payload);
@@ -373,16 +503,33 @@ public class FastApiUploadService {
 		}
 	}
 
-	private String buildAnalyzeRequestJson(FastApiUploadRequest request) {
+	private String buildAnalyzeRequestJson(FastApiAnalyzeRequest request) {
 		try {
-			var payload = objectMapper.createObjectNode();
-			payload.put("word", request.word());
-			payload.put("audio_url", request.audioUrl());
-			payload.set("frames", objectMapper.valueToTree(request.frames()));
-			return objectMapper.writeValueAsString(payload);
+			return objectMapper.writeValueAsString(request);
 		} catch (Exception e) {
 			throw new IllegalStateException("FastAPI 요청 JSON 직렬화에 실패했습니다.", e);
 		}
+	}
+
+	private String normalizeAudioUrl(String audioUrl) {
+		if (audioUrl == null || audioUrl.isBlank()) {
+			throw new IllegalArgumentException("audio_url은 필수입니다.");
+		}
+
+		URI uri = URI.create(audioUrl.trim());
+		if (uri.getHost() == null || uri.getHost().isBlank()) {
+			throw new IllegalArgumentException("audio_url 형식이 올바르지 않습니다.");
+		}
+		if ("https".equalsIgnoreCase(uri.getScheme())) {
+			return uri.toString();
+		}
+		if ("http".equalsIgnoreCase(uri.getScheme())) {
+			return URI.create("https://" + uri.getRawAuthority() + uri.getRawPath()
+					+ (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery())
+					+ (uri.getRawFragment() == null ? "" : "#" + uri.getRawFragment()))
+					.toString();
+		}
+		throw new IllegalArgumentException("audio_url은 HTTPS URL이어야 합니다.");
 	}
 
 	private static String[] path(String... values) {
@@ -488,7 +635,12 @@ public class FastApiUploadService {
 			Double visionScore,
 			String transcript,
 			String selectedChoice,
-			String feedbackText
+			String feedbackText,
+			String overallBand,
+			JsonNode phonemeFeedback,
+			JsonNode mouthComparisonAssets,
+			JsonNode llmFeedbackByMode,
+			JsonNode feedbackPayload
 	) {
 	}
 

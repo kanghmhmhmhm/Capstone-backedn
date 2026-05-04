@@ -11,10 +11,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.capstone.pronunciation.domain.user.dto.DeleteAccountRequest;
 import com.capstone.pronunciation.domain.user.dto.MessageResponse;
+import com.capstone.pronunciation.domain.user.dto.MyPageQuestionSummaryResponse;
 import com.capstone.pronunciation.domain.user.dto.MyPageSummaryResponse;
 import com.capstone.pronunciation.domain.user.dto.UpdateNicknameRequest;
 import com.capstone.pronunciation.domain.user.dto.UpdateProfileRequest;
+import com.capstone.pronunciation.domain.user.dto.UserBadgeResponse;
 import com.capstone.pronunciation.domain.user.dto.UserProfileResponse;
+import com.capstone.pronunciation.domain.user.dto.UserSettingsRequest;
+import com.capstone.pronunciation.domain.user.dto.UserSettingsResponse;
 import com.capstone.pronunciation.domain.user.service.UserService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -46,6 +50,46 @@ public class UserController {
 	)
 	public MyPageSummaryResponse myPageSummary(Authentication authentication) {
 		return userService.myPageSummary(authentication.getName());
+	}
+
+	@GetMapping("/badges")
+	@Operation(
+			summary = "[프론트 사용] 내 배지 조회",
+			description = "마이페이지 배지 섹션에 표시할 획득 배지 목록을 조회합니다."
+	)
+	public java.util.List<UserBadgeResponse> myBadges(Authentication authentication) {
+		return userService.myBadges(authentication.getName());
+	}
+
+	@GetMapping("/questions")
+	@Operation(
+			summary = "[프론트 사용] 최근 학습 문제 조회",
+			description = "마이페이지의 Asked Questions/최근 시도 문제 섹션에 표시할 데이터를 조회합니다."
+	)
+	public java.util.List<MyPageQuestionSummaryResponse> myQuestions(
+			Authentication authentication,
+			@org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") int limit) {
+		return userService.myQuestions(authentication.getName(), limit);
+	}
+
+	@GetMapping("/settings")
+	@Operation(
+			summary = "[프론트 사용] 내 설정 조회",
+			description = "설정 화면의 현재 학습/사운드/코치 톤 설정을 조회합니다."
+	)
+	public UserSettingsResponse mySettings(Authentication authentication) {
+		return userService.mySettings(authentication.getName());
+	}
+
+	@PatchMapping("/settings")
+	@Operation(
+			summary = "[프론트 사용] 내 설정 수정",
+			description = "설정 화면의 알림, 사운드, 입모양 가이드, 코치 톤 옵션을 수정합니다."
+	)
+	public UserSettingsResponse updateSettings(
+			Authentication authentication,
+			@RequestBody UserSettingsRequest request) {
+		return userService.updateSettings(authentication.getName(), request);
 	}
 
 	@PatchMapping

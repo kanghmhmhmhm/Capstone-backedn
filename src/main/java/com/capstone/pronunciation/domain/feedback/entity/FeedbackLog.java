@@ -56,4 +56,3 @@ public class FeedbackLog {
 		this.feedbackText = feedbackText;
 	}
 }
-

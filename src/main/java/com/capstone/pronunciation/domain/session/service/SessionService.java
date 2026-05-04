@@ -15,6 +15,7 @@ import com.capstone.pronunciation.domain.quiz.repository.QuizQuestionRepository;
 import com.capstone.pronunciation.domain.session.dto.SessionDetailResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionEndResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionProgressResponse;
+import com.capstone.pronunciation.domain.session.dto.SessionResumeResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionResultItemResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionStartResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionSummaryResponse;
@@ -113,6 +114,39 @@ public class SessionService {
 				results.size(),
 				averageScore(session.getId()),
 				results.stream().map(this::toItem).toList()
+		);
+	}
+
+	@Transactional(readOnly = true)
+	public SessionResumeResponse sessionResume(String email, Long sessionId) {
+		LearningSession session = getOwnedSession(email, sessionId);
+		List<SessionQuestion> sessionQuestions = sessionQuestionRepository.findBySession_IdOrderByQuestionOrderAsc(session.getId());
+		Set<Long> solvedQuestionIds = sessionResultRepository.findQuestionIdsBySession(session.getId()).stream()
+				.collect(Collectors.toSet());
+		List<QuestionDto> questions = sessionQuestions.stream()
+				.map(sessionQuestion -> toQuestionDto(
+						sessionQuestion.getQuestion(),
+						solvedQuestionIds.contains(sessionQuestion.getQuestion().getId())))
+				.toList();
+		Long currentQuestionId = questions.stream()
+				.filter(question -> !Boolean.TRUE.equals(question.solved()))
+				.map(QuestionDto::questionId)
+				.findFirst()
+				.orElse(null);
+		List<SessionResultItemResponse> submittedResults = sessionResultRepository.findDetailedBySessionId(session.getId()).stream()
+				.map(this::toItem)
+				.toList();
+
+		return new SessionResumeResponse(
+				session.getId(),
+				session.getStartTime(),
+				session.getEndTime(),
+				session.getSelectedLevel(),
+				session.getEndTime() == null && currentQuestionId != null,
+				currentQuestionId,
+				submittedResults.size(),
+				questions,
+				submittedResults
 		);
 	}
 

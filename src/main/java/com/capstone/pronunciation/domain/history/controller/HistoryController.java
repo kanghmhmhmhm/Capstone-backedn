@@ -4,12 +4,14 @@ import java.util.List;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.capstone.pronunciation.domain.history.dto.StudyHistoryItemResponse;
 import com.capstone.pronunciation.domain.history.service.HistoryService;
+import com.capstone.pronunciation.domain.session.dto.SessionDetailResponse;
 import com.capstone.pronunciation.domain.session.dto.SessionSummaryResponse;
 import com.capstone.pronunciation.domain.session.service.SessionService;
 
@@ -36,6 +38,15 @@ public class HistoryController {
 	)
 	public List<SessionSummaryResponse> sessions(Authentication authentication) {
 		return sessionService.sessions(authentication.getName());
+	}
+
+	@GetMapping("/sessions/{sessionId}")
+	@Operation(
+			summary = "[프론트 사용] 학습 기록 세션 상세 조회",
+			description = "내 학습 기록 화면에서 선택한 세션의 문제별 결과와 점수 정보를 조회합니다."
+	)
+	public SessionDetailResponse sessionDetail(Authentication authentication, @PathVariable Long sessionId) {
+		return sessionService.sessionDetail(authentication.getName(), sessionId);
 	}
 
 	@GetMapping("/results/recent")
