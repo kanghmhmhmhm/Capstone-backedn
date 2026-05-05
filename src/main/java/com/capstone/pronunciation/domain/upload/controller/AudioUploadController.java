@@ -59,7 +59,7 @@ public class AudioUploadController {
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	@Operation(
 			summary = "[프론트 사용] 오디오 업로드",
-			description = "연동 대상: Frontend. mp3 오디오 파일을 업로드하고 uploadId, 파일 URL, 메타데이터를 반환합니다. 이후 /api/media/audio/{uploadId}/analyze 호출의 입력값으로 사용됩니다."
+			description = "연동 대상: Frontend. WAV 오디오 파일을 업로드하고 uploadId, 파일 URL, 메타데이터를 반환합니다. 이후 /api/media/audio/{uploadId}/analyze 호출의 입력값으로 사용됩니다."
 	)
 	public UploadResponse uploadAudio(
 			Authentication authentication,
@@ -73,13 +73,13 @@ public class AudioUploadController {
 		}
 
 		String originalFilename = file.getOriginalFilename();
-		if (originalFilename == null || !originalFilename.toLowerCase().endsWith(".mp3")) {
-			throw new IllegalArgumentException("mp3 파일만 업로드할 수 있습니다.");
+		if (originalFilename == null || !originalFilename.toLowerCase().endsWith(".wav")) {
+			throw new IllegalArgumentException("WAV 파일만 업로드할 수 있습니다.");
 		}
 
 		String contentType = file.getContentType();
-		if (contentType == null || !isSupportedMp3ContentType(contentType)) {
-			throw new IllegalArgumentException("mp3 파일만 업로드할 수 있습니다.");
+		if (contentType == null || !isSupportedWavContentType(contentType)) {
+			throw new IllegalArgumentException("WAV 파일만 업로드할 수 있습니다.");
 		}
 
 		String bucket = s3Config.getBucket();
@@ -143,9 +143,12 @@ public class AudioUploadController {
 				safeFilename);
 	}
 
-	private boolean isSupportedMp3ContentType(String contentType) {
-		return "audio/mpeg".equalsIgnoreCase(contentType)
-				|| "audio/mp3".equalsIgnoreCase(contentType);
+	private boolean isSupportedWavContentType(String contentType) {
+		return "audio/wav".equalsIgnoreCase(contentType)
+				|| "audio/wave".equalsIgnoreCase(contentType)
+				|| "audio/x-wav".equalsIgnoreCase(contentType)
+				|| "audio/vnd.wave".equalsIgnoreCase(contentType)
+				|| MediaType.APPLICATION_OCTET_STREAM_VALUE.equalsIgnoreCase(contentType);
 	}
 
 	private String extractUsername(Authentication authentication) {

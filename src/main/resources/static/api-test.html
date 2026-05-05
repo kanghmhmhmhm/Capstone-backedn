@@ -181,7 +181,7 @@
 <body>
   <header>
     <h1>Capstone API Test</h1>
-    <p>로그인 → 세션 시작 → mp3 업로드 → AI 테스트/AI 분석 → 결과 조회 순서로 바로 실험할 수 있게 만든 테스트 페이지입니다.</p>
+    <p>로그인 → 세션 시작 → WAV 업로드 → AI 테스트/AI 분석 → 결과 조회 순서로 바로 실험할 수 있게 만든 테스트 페이지입니다.</p>
   </header>
 
   <main>
@@ -190,7 +190,7 @@
       <ol class="guide">
         <li>이메일과 비밀번호를 입력하고 로그인하거나 회원가입합니다.</li>
         <li>레벨을 고르고 <code>학습 세션 시작</code>을 누릅니다. 문제 10개와 첫 문제의 <code>questionId</code>, <code>word</code>가 자동으로 채워집니다.</li>
-        <li>mp3 파일을 업로드합니다. 성공하면 <code>uploadId</code>가 자동 저장됩니다.</li>
+        <li>WAV 파일을 업로드합니다. 성공하면 <code>uploadId</code>가 자동 저장됩니다.</li>
         <li><code>AI 테스트 요청</code>으로 DB 저장 없이 AI 서버 응답만 먼저 확인할 수 있습니다.</li>
         <li><code>AI 분석 요청</code>을 누르면 Spring이 FastAPI로 전달하고 결과를 저장합니다.</li>
         <li>마지막에 <code>결과 상세 조회</code>, <code>세션 피드백 조회</code>로 저장 결과를 확인합니다.</li>
@@ -265,12 +265,12 @@
       </div>
 
       <div class="card">
-        <h2>3. mp3 업로드</h2>
-        <div class="hint">mp3 파일만 업로드할 수 있습니다. 성공하면 uploadId가 자동 저장됩니다.</div>
+        <h2>3. WAV 업로드</h2>
+        <div class="hint">WAV 파일만 업로드할 수 있습니다. 성공하면 uploadId가 자동 저장됩니다.</div>
         <span class="endpoint">/api/media/audio</span>
 
-        <label for="audio_file">MP3 파일</label>
-        <input id="audio_file" type="file" accept=".mp3,audio/mpeg" />
+        <label for="audio_file">WAV 파일</label>
+        <input id="audio_file" type="file" accept=".wav,audio/wav,audio/wave,audio/x-wav" />
 
         <div class="row">
           <button id="btnUploadAudio">음성 업로드</button>
@@ -704,7 +704,7 @@
       outUpload.textContent = '...';
       try {
         const file = document.getElementById('audio_file').files?.[0];
-        if (!file) throw { message: '먼저 mp3 파일을 선택하세요.' };
+        if (!file) throw { message: '먼저 WAV 파일을 선택하세요.' };
 
         const form = new FormData();
         form.append('file', file);
