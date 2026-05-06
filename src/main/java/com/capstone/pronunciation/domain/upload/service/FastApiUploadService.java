@@ -375,22 +375,32 @@ public class FastApiUploadService {
 		}
 
 		for (JsonNode landmark : faceLandmarks) {
-			if (landmark == null || landmark.isNull() || !landmark.isObject()) {
+			if (landmark != null && landmark.isArray()) {
+				for (JsonNode nestedLandmark : landmark) {
+					putLandmarkIfPresent(landmarks, nestedLandmark);
+				}
 				continue;
+			}
+			putLandmarkIfPresent(landmarks, landmark);
+		}
+		return landmarks;
+	}
+
+	private void putLandmarkIfPresent(List<FastApiLandmark> landmarks, JsonNode landmark) {
+			if (landmark == null || landmark.isNull() || !landmark.isObject()) {
+			return;
 			}
 			JsonNode xNode = landmark.path("x");
 			JsonNode yNode = landmark.path("y");
 			JsonNode zNode = landmark.path("z");
 			if (!xNode.isNumber() || !yNode.isNumber() || !zNode.isNumber()) {
-				continue;
+			return;
 			}
 			landmarks.add(new FastApiLandmark(
 					xNode.asDouble(),
 					yNode.asDouble(),
 					zNode.asDouble()
 			));
-		}
-		return landmarks;
 	}
 
 	private Map<String, Double> normalizeBlendshapes(JsonNode faceBlendshapes) {

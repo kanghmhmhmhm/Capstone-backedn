@@ -20,7 +20,7 @@ public class FeedbackLog {
 	private String mode;
 
 	@Lob
-	@Column(name = "feedback_text", nullable = false)
+	@Column(name = "feedback_text", nullable = false, columnDefinition = "LONGTEXT")
 	private String feedbackText;
 
 	protected FeedbackLog() {

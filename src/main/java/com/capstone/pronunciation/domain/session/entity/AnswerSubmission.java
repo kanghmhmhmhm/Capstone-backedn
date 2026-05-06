@@ -24,7 +24,7 @@ public class AnswerSubmission {
 	private SessionResult result;
 
 	@Lob
-	@Column
+	@Column(columnDefinition = "LONGTEXT")
 	private String transcript;
 
 	@Column(name = "selected_choice", length = 255)
@@ -34,7 +34,7 @@ public class AnswerSubmission {
 	private String provider;
 
 	@Lob
-	@Column(name = "provider_payload")
+	@Column(name = "provider_payload", columnDefinition = "LONGTEXT")
 	private String providerPayload;
 
 	@ManyToOne(fetch = FetchType.LAZY)
