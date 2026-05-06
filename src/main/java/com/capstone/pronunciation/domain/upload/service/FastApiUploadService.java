@@ -48,6 +48,7 @@ import tools.jackson.databind.ObjectMapper;
 public class FastApiUploadService {
 
 	private static final long PRESIGNED_URL_EXPIRES_IN_SECONDS = 600;
+	private static final int MAX_FASTAPI_FRAMES = 120;
 	private static final Logger log = LoggerFactory.getLogger(FastApiUploadService.class);
 
 	private final AmazonS3 amazonS3;
@@ -109,16 +110,16 @@ public class FastApiUploadService {
 		Date expiration = new Date(System.currentTimeMillis() + PRESIGNED_URL_EXPIRES_IN_SECONDS * 1000);
 		URL presignedUrl = amazonS3.generatePresignedUrl(s3Config.getBucket(), uploadFile.getS3Key(), expiration);
 		List<FastApiRawFrame> normalizedFrames = normalizeFrames(frames);
+		List<FastApiRawFrame> sampledFrames = sampleFrames(normalizedFrames);
 
 		FastApiAnalyzeRequest request = new FastApiAnalyzeRequest(
 				word,
 				normalizeAudioUrl(presignedUrl.toString()),
-				normalizedFrames
+				sampledFrames
 		);
-		String requestJson = buildAnalyzeRequestJson(request);
-		logOutgoingRequest("sendUpload", requestJson);
+		logOutgoingRequest("sendUpload", normalizedFrames.size(), sampledFrames.size());
 
-		HttpExchangeResult responseEntity = executeAnalyzeRequest(requestJson);
+		HttpExchangeResult responseEntity = executeAnalyzeRequest(request);
 		logIncomingResponse("sendUpload", HttpStatusCode.valueOf(responseEntity.statusCode()), responseEntity.body());
 
 		HttpStatusCode statusCode = HttpStatusCode.valueOf(responseEntity.statusCode());
@@ -166,15 +167,15 @@ public class FastApiUploadService {
 			resolvedAudioUrl = presignedUrl.toString();
 		}
 		List<FastApiRawFrame> normalizedFrames = normalizeFrames(frames);
+		List<FastApiRawFrame> sampledFrames = sampleFrames(normalizedFrames);
 		FastApiAnalyzeRequest request = new FastApiAnalyzeRequest(
 				word,
 				normalizeAudioUrl(resolvedAudioUrl),
-				normalizedFrames
+				sampledFrames
 		);
-		String requestJson = buildAnalyzeRequestJson(request);
-		logOutgoingRequest("testAnalyze", requestJson);
+		logOutgoingRequest("testAnalyze", normalizedFrames.size(), sampledFrames.size());
 
-		HttpExchangeResult responseEntity = executeAnalyzeRequest(requestJson);
+		HttpExchangeResult responseEntity = executeAnalyzeRequest(request);
 		String responseBody = responseEntity.body();
 		logIncomingResponse("testAnalyze", null, responseBody);
 
@@ -368,6 +369,19 @@ public class FastApiUploadService {
 		return normalizedFrames;
 	}
 
+	private List<FastApiRawFrame> sampleFrames(List<FastApiRawFrame> frames) {
+		if (frames.size() <= MAX_FASTAPI_FRAMES) {
+			return frames;
+		}
+
+		List<FastApiRawFrame> sampledFrames = new ArrayList<>(MAX_FASTAPI_FRAMES);
+		for (int i = 0; i < MAX_FASTAPI_FRAMES; i++) {
+			int sourceIndex = (int) Math.round((double) i * (frames.size() - 1) / (MAX_FASTAPI_FRAMES - 1));
+			sampledFrames.add(frames.get(sourceIndex));
+		}
+		return sampledFrames;
+	}
+
 	private List<FastApiLandmark> normalizeLandmarks(JsonNode faceLandmarks) {
 		List<FastApiLandmark> landmarks = new ArrayList<>();
 		if (faceLandmarks == null || faceLandmarks.isMissingNode() || faceLandmarks.isNull() || !faceLandmarks.isArray()) {
@@ -513,14 +527,6 @@ public class FastApiUploadService {
 		}
 	}
 
-	private String buildAnalyzeRequestJson(FastApiAnalyzeRequest request) {
-		try {
-			return objectMapper.writeValueAsString(request);
-		} catch (Exception e) {
-			throw new IllegalStateException("FastAPI 요청 JSON 직렬화에 실패했습니다.", e);
-		}
-	}
-
 	private String normalizeAudioUrl(String audioUrl) {
 		if (audioUrl == null || audioUrl.isBlank()) {
 			throw new IllegalArgumentException("audio_url은 필수입니다.");
@@ -563,21 +569,20 @@ public class FastApiUploadService {
 		return Math.round(bounded * 10.0) / 10.0;
 	}
 
-	private HttpExchangeResult executeAnalyzeRequest(String requestJson) {
+	private HttpExchangeResult executeAnalyzeRequest(FastApiAnalyzeRequest request) {
 		URI analyzeUri = buildAnalyzeUri();
 		HttpURLConnection connection = null;
 		try {
-			byte[] requestBytes = requestJson.getBytes(StandardCharsets.UTF_8);
-			log.info("FastAPI analyze target: uri={}, payloadLength={}", analyzeUri, requestJson == null ? 0 : requestJson.length());
+			log.info("FastAPI analyze target: uri={}, streaming=true", analyzeUri);
 			connection = (HttpURLConnection) analyzeUri.toURL().openConnection();
 			connection.setRequestMethod("POST");
 			connection.setDoOutput(true);
 			connection.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
 			connection.setRequestProperty("Accept", MediaType.APPLICATION_JSON_VALUE);
-			connection.setFixedLengthStreamingMode(requestBytes.length);
+			connection.setChunkedStreamingMode(64 * 1024);
 
 			try (var outputStream = connection.getOutputStream()) {
-				outputStream.write(requestBytes);
+				objectMapper.writeValue(outputStream, request);
 			}
 
 			int statusCode = connection.getResponseCode();
@@ -627,8 +632,14 @@ public class FastApiUploadService {
 		return URI.create(normalizedBaseUrl + normalizedPath);
 	}
 
-	private void logOutgoingRequest(String source, String requestJson) {
-		log.info("FastAPI {} request payload: {}", source, requestJson);
+	private void logOutgoingRequest(String source, int originalFrameCount, int sentFrameCount) {
+		log.info(
+				"FastAPI {} request payload summary: originalFrames={}, sentFrames={}, maxFrames={}, streaming=true",
+				source,
+				originalFrameCount,
+				sentFrameCount,
+				MAX_FASTAPI_FRAMES
+		);
 	}
 
 	private void logIncomingResponse(String source, HttpStatusCode statusCode, String responseBody) {
