@@ -27,6 +27,7 @@ app:
   fastapi:
     base-url: ${FASTAPI_BASE_URL:http://3.36.71.212:8000/}
     analyze-path: ${FASTAPI_ANALYZE_PATH:/analyze}
+    feedback-path: ${FASTAPI_FEEDBACK_PATH:/feedback}
 
 
 cloud:

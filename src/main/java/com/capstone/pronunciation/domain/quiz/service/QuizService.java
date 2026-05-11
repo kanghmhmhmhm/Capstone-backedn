@@ -28,8 +28,6 @@ import com.capstone.pronunciation.domain.user.repository.UserRepository;
 
 @Service
 public class QuizService {
-	private static final String BASIC_PRONUNCIATION_STAGE = "BASIC_PRONUNCIATION";
-	private static final String WORD_STAGE = "WORD";
 	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
 	private static final int SESSION_QUESTION_COUNT = 10;
 	private static final int LEVEL_EVAL_WINDOW = 5;
@@ -96,14 +94,9 @@ public class QuizService {
 			throw new IllegalArgumentException("selectedLevel은 필수입니다.");
 		}
 
-		List<QuizQuestion> candidates;
-		if (selectedLevel == 1) {
-			candidates = questionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(BASIC_PRONUNCIATION_STAGE);
-		} else if (selectedLevel == 2) {
-			candidates = questionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(WORD_STAGE);
-		} else {
-			candidates = questionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(sentenceStageName(selectedLevel));
-		}
+		List<QuizQuestion> candidates = questionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(
+				sentenceStageName(selectedLevel)
+		);
 		return candidates.isEmpty() ? List.of() : candidates;
 	}
 

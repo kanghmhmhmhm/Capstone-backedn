@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.capstone.pronunciation.domain.quiz.entity.QuizQuestion;
 
@@ -26,4 +29,16 @@ public interface QuizQuestionRepository extends JpaRepository<QuizQuestion, Long
 	List<QuizQuestion> findByStage_StageNameStartingWithIgnoreCaseOrderByIdAsc(String stagePrefix);
 
 	Optional<QuizQuestion> findTopByStage_StageNameStartingWithIgnoreCaseOrderByDifficultyDesc(String stagePrefix);
+
+	@Modifying
+	@Query("""
+			delete from QuizQuestion q
+			where q.id = :questionId
+			  and not exists (
+			      select 1
+			      from SessionResult r
+			      where r.question.id = q.id
+			  )
+			""")
+	void deleteIfUnused(@Param("questionId") Long questionId);
 }

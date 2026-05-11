@@ -55,6 +55,7 @@ public class FastApiUploadService {
 	private final S3Config s3Config;
 	private final String baseUrl;
 	private final String analyzePath;
+	private final String feedbackPath;
 	private final LearningSessionRepository learningSessionRepository;
 	private final QuizQuestionRepository quizQuestionRepository;
 	private final SessionResultRepository sessionResultRepository;
@@ -66,6 +67,7 @@ public class FastApiUploadService {
 	public FastApiUploadService(
 			@Value("${app.fastapi.base-url:http://localhost:8000}") String baseUrl,
 			@Value("${app.fastapi.analyze-path:/analyze}") String analyzePath,
+			@Value("${app.fastapi.feedback-path:/feedback}") String feedbackPath,
 			AmazonS3 amazonS3,
 			S3Config s3Config,
 			LearningSessionRepository learningSessionRepository,
@@ -78,6 +80,7 @@ public class FastApiUploadService {
 		this.amazonS3 = amazonS3;
 		this.s3Config = s3Config;
 		this.analyzePath = analyzePath;
+		this.feedbackPath = feedbackPath;
 		this.learningSessionRepository = learningSessionRepository;
 		this.quizQuestionRepository = quizQuestionRepository;
 		this.sessionResultRepository = sessionResultRepository;
@@ -122,9 +125,17 @@ public class FastApiUploadService {
 		HttpExchangeResult responseEntity = executeAnalyzeRequest(request);
 		logIncomingResponse("sendUpload", HttpStatusCode.valueOf(responseEntity.statusCode()), responseEntity.body());
 
-		HttpStatusCode statusCode = HttpStatusCode.valueOf(responseEntity.statusCode());
 		JsonNode responseBody = parseResponseBody(responseEntity.body());
-		SavedAnalysisResult savedResult = saveAnalysisResult(uploadFile, sessionId, questionId, selectedChoice, responseBody);
+		JsonNode feedbackBody = requestFeedback(word, responseBody);
+		SavedAnalysisResult savedResult = saveAnalysisResult(
+				uploadFile,
+				sessionId,
+				questionId,
+				word,
+				selectedChoice,
+				responseBody,
+				feedbackBody
+		);
 
 		return new FastApiDispatchResponse(
 				uploadFile.getId(),
@@ -140,9 +151,12 @@ public class FastApiUploadService {
 				savedResult.selectedChoice(),
 				savedResult.feedbackText(),
 				savedResult.overallBand(),
+				savedResult.mildFeedback(),
+				savedResult.spicyFeedback(),
 				savedResult.phonemeFeedback(),
 				savedResult.mouthComparisonAssets(),
 				savedResult.llmFeedbackByMode(),
+				savedResult.llmContext(),
 				savedResult.feedbackPayload()
 		);
 	}
@@ -182,51 +196,81 @@ public class FastApiUploadService {
 		return parseResponseBody(responseBody);
 	}
 
+	private JsonNode requestFeedback(String word, JsonNode analyzeBody) {
+		double score = readRequiredScore0To10(analyzeBody, path("score_0_10"));
+		JsonNode llmContext = readNode(analyzeBody, path("llm_context"));
+		if (llmContext == null || llmContext.isMissingNode() || llmContext.isNull()) {
+			throw new IllegalStateException("FastAPI /analyze 응답에 llm_context가 없습니다.");
+		}
+
+		FastApiFeedbackRequest request = new FastApiFeedbackRequest(word, score, llmContext);
+		HttpExchangeResult responseEntity = executeFeedbackRequest(request);
+		logIncomingResponse("feedback", HttpStatusCode.valueOf(responseEntity.statusCode()), responseEntity.body());
+		return parseResponseBody(responseEntity.body());
+	}
+
 	private SavedAnalysisResult saveAnalysisResult(
 			UploadFile uploadFile,
 			Long sessionId,
 			Long questionId,
+			String word,
 			String selectedChoice,
-			JsonNode responseBody) {
-		if (responseBody == null || responseBody.isNull()) {
+			JsonNode analyzeBody,
+			JsonNode feedbackBody) {
+		if (analyzeBody == null || analyzeBody.isNull()) {
 			throw new IllegalStateException("FastAPI 응답 본문이 비어 있습니다.");
 		}
-		JsonNode analysisPayload = extractAnalysisPayload(responseBody);
+		JsonNode analysisPayload = extractAnalysisPayload(analyzeBody);
 
 		LearningSession session = learningSessionRepository.findByIdAndUser_Id(sessionId, uploadFile.getUser().getId())
 				.orElseThrow(() -> new IllegalArgumentException("세션을 찾을 수 없습니다."));
 		QuizQuestion question = quizQuestionRepository.findById(questionId)
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
 
-		double finalScore = readRequiredScore(analysisPayload, path("overall_scores", "fused_score_0_100"));
-		double voiceScore = readRequiredScore(analysisPayload, path("overall_scores", "audio_score_0_100"));
-		double visionScore = readRequiredScore(analysisPayload, path("overall_scores", "visual_score_0_100"));
+		double finalScore = readRequiredScore0To10(analysisPayload, path("score_0_10"));
+		double voiceScore = readRequiredScore0To10(analysisPayload, path("audio_score_0_10"));
+		double visionScore = readRequiredScore0To10(analysisPayload, path("visual_score_0_10"));
 
-		String transcript = readText(responseBody,
+		String transcript = readText(analyzeBody,
 				path("transcript"),
 				path("recognized_text"),
 				path("stt_text"),
 				path("word"));
 		if (transcript == null || transcript.isBlank()) {
-			transcript = readText(analysisPayload, path("word"));
+			transcript = word;
 		}
-		String providerPayload = toJson(responseBody);
-		String feedbackText = deriveFeedbackText(analysisPayload, responseBody);
-		String overallBand = readText(analysisPayload, path("overall_scores", "overall_band"));
+		String mildFeedback = readText(feedbackBody, path("mild"));
+		String spicyFeedback = readText(feedbackBody, path("spicy"));
+		String feedbackText = firstNonBlank(mildFeedback, spicyFeedback, deriveFeedbackText(analysisPayload, analyzeBody));
+		String overallBand = readText(analysisPayload, path("band"));
+		JsonNode llmContext = firstPresentNode(analysisPayload, path("llm_context"));
+		JsonNode llmFeedbackByMode = buildLlmFeedbackByMode(mildFeedback, spicyFeedback);
+		JsonNode providerPayload = buildProviderPayload(analyzeBody, feedbackBody);
 
-		SessionResult result = sessionResultRepository.save(new SessionResult(session, question, finalScore));
-		pronunciationScoreRepository.save(new PronunciationScore(result, voiceScore, visionScore));
+		SessionResult result = sessionResultRepository.save(new SessionResult(session, question, scaleScore0To100(finalScore)));
+		pronunciationScoreRepository.save(new PronunciationScore(
+				result,
+				scaleScore0To100(voiceScore),
+				scaleScore0To100(visionScore)
+		));
 		answerSubmissionRepository.save(new AnswerSubmission(
 				result,
 				transcript,
 				selectedChoice,
 				"FASTAPI",
-				providerPayload,
+				toJson(providerPayload),
 				uploadFile,
 				Instant.now()
 		));
 
-		if (!feedbackText.isBlank()) {
+		if (mildFeedback != null && !mildFeedback.isBlank()) {
+			feedbackLogRepository.save(new FeedbackLog(result, "mild", mildFeedback));
+		}
+		if (spicyFeedback != null && !spicyFeedback.isBlank()) {
+			feedbackLogRepository.save(new FeedbackLog(result, "spicy", spicyFeedback));
+		}
+		if ((mildFeedback == null || mildFeedback.isBlank()) && (spicyFeedback == null || spicyFeedback.isBlank())
+				&& feedbackText != null && !feedbackText.isBlank()) {
 			feedbackLogRepository.save(new FeedbackLog(result, "FASTAPI", feedbackText));
 		}
 
@@ -239,23 +283,13 @@ public class FastApiUploadService {
 				selectedChoice,
 				feedbackText,
 				overallBand,
-				firstPresentNode(
-						analysisPayload,
-						path("phoneme_diagnostics"),
-						path("summary", "phoneme_feedback"),
-						path("feedback", "phoneme_feedback")),
-				firstPresentNode(
-						analysisPayload,
-						path("mouth_comparison_assets"),
-						path("mouth_feedback"),
-						path("viseme_comparison"),
-						path("visual_feedback")),
-				firstPresentNode(
-						analysisPayload,
-						path("llm_feedback_by_mode"),
-						path("llm_context"),
-						path("feedback_by_mode")),
-				analysisPayload
+				mildFeedback,
+				spicyFeedback,
+				null,
+				null,
+				llmFeedbackByMode,
+				llmContext,
+				providerPayload
 		);
 	}
 
@@ -276,30 +310,55 @@ public class FastApiUploadService {
 			return directFeedback;
 		}
 
-		String overallBand = readText(analysisPayload, path("overall_scores", "overall_band"));
-		int weakCount = readInt(analysisPayload, path("summary", "weak_count"));
-		int mismatchCount = readInt(analysisPayload, path("summary", "mismatch_count"));
+		String overallBand = readText(analysisPayload, path("band"), path("overall_scores", "overall_band"));
 		String praisePoint = readText(analysisPayload, path("llm_context", "praise_point"));
-		String keyIssuePhoneme = readText(analysisPayload, path("llm_context", "key_issues", "0", "phoneme"));
-		String howToFix = readText(analysisPayload, path("llm_context", "key_issues", "0", "how_to_fix"));
+		String audioIssuePhoneme = readText(analysisPayload, path("llm_context", "audio_issue", "phoneme"));
+		String heardAs = readText(analysisPayload, path("llm_context", "audio_issue", "heard_as"));
+		String visualIssuePhoneme = readText(analysisPayload, path("llm_context", "visual_issue", "phoneme"));
+		String visualTip = readText(analysisPayload, path("llm_context", "visual_issue", "tip"));
 
 		StringBuilder summary = new StringBuilder("AI 발음 분석 완료");
 		if (overallBand != null && !overallBand.isBlank()) {
-			summary.append(": overall_band=").append(overallBand);
+			summary.append(": band=").append(overallBand);
 		}
-		summary.append(", weak=").append(weakCount)
-				.append(", mismatches=").append(mismatchCount);
 		if (praisePoint != null && !praisePoint.isBlank()) {
 			summary.append(". ").append(praisePoint);
 		}
-		if (keyIssuePhoneme != null && !keyIssuePhoneme.isBlank()) {
-			summary.append(" 핵심 교정 음소는 /").append(keyIssuePhoneme).append("/ 입니다.");
+		if (audioIssuePhoneme != null && !audioIssuePhoneme.isBlank()) {
+			summary.append(" 음성 교정 음소는 /").append(audioIssuePhoneme).append("/ 입니다.");
+			if (heardAs != null && !heardAs.isBlank()) {
+				summary.append(" ").append(heardAs).append("처럼 들렸습니다.");
+			}
 		}
-		if (howToFix != null && !howToFix.isBlank()) {
-			summary.append(" ").append(howToFix);
+		if (visualIssuePhoneme != null && !visualIssuePhoneme.isBlank()) {
+			summary.append(" 입모양 교정 음소는 /").append(visualIssuePhoneme).append("/ 입니다.");
+		}
+		if (visualTip != null && !visualTip.isBlank()) {
+			summary.append(" ").append(visualTip);
 		}
 
 		return summary.toString();
+	}
+
+	private JsonNode buildProviderPayload(JsonNode analyzeBody, JsonNode feedbackBody) {
+		Map<String, Object> payload = new LinkedHashMap<>();
+		payload.put("analyze", analyzeBody);
+		payload.put("feedback", feedbackBody);
+		return parseResponseBody(toJson(payload));
+	}
+
+	private JsonNode buildLlmFeedbackByMode(String mildFeedback, String spicyFeedback) {
+		Map<String, Object> feedbackByMode = new LinkedHashMap<>();
+		if (mildFeedback != null && !mildFeedback.isBlank()) {
+			feedbackByMode.put("mild", mildFeedback);
+		}
+		if (spicyFeedback != null && !spicyFeedback.isBlank()) {
+			feedbackByMode.put("spicy", spicyFeedback);
+		}
+		if (feedbackByMode.isEmpty()) {
+			return null;
+		}
+		return parseResponseBody(toJson(feedbackByMode));
 	}
 
 	private JsonNode extractAnalysisPayload(JsonNode responseBody) {
@@ -476,6 +535,18 @@ public class FastApiUploadService {
 		return clampScore(value);
 	}
 
+	private double readRequiredScore0To10(JsonNode root, String[] path) {
+		JsonNode node = readNode(root, path);
+		if (node == null || node.isMissingNode() || node.isNull()) {
+			throw new IllegalStateException("FastAPI 응답에 필수 점수 필드가 없습니다: " + String.join(".", path));
+		}
+		double value = node.asDouble(Double.NaN);
+		if (Double.isNaN(value)) {
+			throw new IllegalStateException("FastAPI 점수 값이 숫자가 아닙니다: " + String.join(".", path));
+		}
+		return clampScore0To10(value);
+	}
+
 	private int readInt(JsonNode root, String[] path) {
 		JsonNode node = readNode(root, path);
 		if (node == null || node.isMissingNode() || node.isNull()) {
@@ -517,6 +588,15 @@ public class FastApiUploadService {
 			}
 		}
 		return null;
+	}
+
+	private String firstNonBlank(String... values) {
+		for (String value : values) {
+			if (value != null && !value.isBlank()) {
+				return value;
+			}
+		}
+		return "";
 	}
 
 	private String toJson(Object payload) {
@@ -569,6 +649,15 @@ public class FastApiUploadService {
 		return Math.round(bounded * 10.0) / 10.0;
 	}
 
+	private static double clampScore0To10(double value) {
+		double bounded = Math.max(0.0, Math.min(10.0, value));
+		return Math.round(bounded * 10.0) / 10.0;
+	}
+
+	private static double scaleScore0To100(double score0To10) {
+		return clampScore(score0To10 * 10.0);
+	}
+
 	private HttpExchangeResult executeAnalyzeRequest(FastApiAnalyzeRequest request) {
 		URI analyzeUri = buildAnalyzeUri();
 		HttpURLConnection connection = null;
@@ -616,6 +705,53 @@ public class FastApiUploadService {
 		}
 	}
 
+	private HttpExchangeResult executeFeedbackRequest(FastApiFeedbackRequest request) {
+		URI feedbackUri = buildFeedbackUri();
+		HttpURLConnection connection = null;
+		try {
+			log.info("FastAPI feedback target: uri={}, streaming=true", feedbackUri);
+			connection = (HttpURLConnection) feedbackUri.toURL().openConnection();
+			connection.setRequestMethod("POST");
+			connection.setDoOutput(true);
+			connection.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+			connection.setRequestProperty("Accept", MediaType.APPLICATION_JSON_VALUE);
+			connection.setChunkedStreamingMode(16 * 1024);
+
+			try (var outputStream = connection.getOutputStream()) {
+				objectMapper.writeValue(outputStream, request);
+			}
+
+			int statusCode = connection.getResponseCode();
+			String responseBody = readResponseBody(connection, statusCode);
+
+			if (statusCode >= 400) {
+				throw new HttpClientErrorException(
+						HttpStatusCode.valueOf(statusCode),
+						connection.getResponseMessage(),
+						null,
+						responseBody == null ? new byte[0] : responseBody.getBytes(StandardCharsets.UTF_8),
+						StandardCharsets.UTF_8
+				);
+			}
+
+			return new HttpExchangeResult(statusCode, responseBody);
+		} catch (RestClientResponseException e) {
+			log.warn(
+					"FastAPI feedback request failed: uri={}, status={}, body={}",
+					feedbackUri,
+					e.getStatusCode(),
+					e.getResponseBodyAsString()
+			);
+			throw e;
+		} catch (Exception e) {
+			throw new IllegalStateException("AI 서버 피드백 요청에 실패했습니다.", e);
+		} finally {
+			if (connection != null) {
+				connection.disconnect();
+			}
+		}
+	}
+
 	private String readResponseBody(HttpURLConnection connection, int statusCode) throws Exception {
 		var inputStream = statusCode >= 400 ? connection.getErrorStream() : connection.getInputStream();
 		if (inputStream == null) {
@@ -629,6 +765,12 @@ public class FastApiUploadService {
 	private URI buildAnalyzeUri() {
 		String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
 		String normalizedPath = analyzePath.startsWith("/") ? analyzePath : "/" + analyzePath;
+		return URI.create(normalizedBaseUrl + normalizedPath);
+	}
+
+	private URI buildFeedbackUri() {
+		String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+		String normalizedPath = feedbackPath.startsWith("/") ? feedbackPath : "/" + feedbackPath;
 		return URI.create(normalizedBaseUrl + normalizedPath);
 	}
 
@@ -658,10 +800,20 @@ public class FastApiUploadService {
 			String selectedChoice,
 			String feedbackText,
 			String overallBand,
+			String mildFeedback,
+			String spicyFeedback,
 			JsonNode phonemeFeedback,
 			JsonNode mouthComparisonAssets,
 			JsonNode llmFeedbackByMode,
+			JsonNode llmContext,
 			JsonNode feedbackPayload
+	) {
+	}
+
+	private record FastApiFeedbackRequest(
+			String word,
+			Double score_0_10,
+			JsonNode llm_context
 	) {
 	}
 

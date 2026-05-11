@@ -30,8 +30,6 @@ import com.capstone.pronunciation.domain.user.repository.UserRepository;
 
 @Service
 public class SessionService {
-	private static final String BASIC_PRONUNCIATION_STAGE = "BASIC_PRONUNCIATION";
-	private static final String WORD_STAGE = "WORD";
 	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
 	private static final int SESSION_QUESTION_COUNT = 10;
 
@@ -232,12 +230,6 @@ public class SessionService {
 	}
 
 	private List<QuizQuestion> resolveQuestionsForLevel(Integer selectedLevel) {
-		if (selectedLevel == 1) {
-			return quizQuestionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(BASIC_PRONUNCIATION_STAGE);
-		}
-		if (selectedLevel == 2) {
-			return quizQuestionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(WORD_STAGE);
-		}
 		return quizQuestionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc(sentenceStageName(selectedLevel));
 	}
 

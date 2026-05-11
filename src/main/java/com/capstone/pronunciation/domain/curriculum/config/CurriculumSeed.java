@@ -1,6 +1,9 @@
 package com.capstone.pronunciation.domain.curriculum.config;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -14,166 +17,368 @@ import com.capstone.pronunciation.domain.quiz.repository.QuizQuestionRepository;
 @Configuration
 public class CurriculumSeed {
 
+	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
+	private static final String BASIC_REFERENCE_STAGE_NAME = "REFERENCE_BASIC_PRONUNCIATION";
+	private static final String WORD_REFERENCE_STAGE_NAME = "REFERENCE_WORDS";
 	private static final String THINK_ANIMATION = """
 			{"timedPhones":[{"phone":"TH","startMs":0,"endMs":120},{"phone":"IH1","startMs":120,"endMs":260},{"phone":"NG","startMs":260,"endMs":420},{"phone":"K","startMs":420,"endMs":480}],"totalDurationMs":480}
 			""";
+	private static final List<String> WORD_CHOICES = List.of(
+			"rice", "light", "really", "glass", "fan", "phone", "coffee", "very", "vest", "think",
+			"three", "thank", "mother", "she", "sheep", "shoes", "zoo", "water", "window", "apple",
+			"cat", "bed", "milk", "sing", "choice", "girl", "world", "map", "spring"
+	);
 
 	@Bean
 	ApplicationRunner seedCurriculum(CurriculumStageRepository stageRepository, QuizQuestionRepository questionRepository) {
-		return args -> {
-			if (stageRepository.count() > 0) {
-				backfillQuestionMetadata(questionRepository);
-				return;
-			}
-
-			CurriculumStage basicPron = stageRepository.save(new CurriculumStage("BASIC_PRONUNCIATION", 1, 1));
-			CurriculumStage word = stageRepository.save(new CurriculumStage("WORD", 2, 2));
-			CurriculumStage sentenceLv3 = stageRepository.save(new CurriculumStage("Sentence Lv3", 3, 3));
-			CurriculumStage sentenceLv4 = stageRepository.save(new CurriculumStage("Sentence Lv4", 4, 4));
-			CurriculumStage sentenceLv5 = stageRepository.save(new CurriculumStage("Sentence Lv5", 5, 5));
-			for (int level = 6; level <= 15; level++) {
-				stageRepository.save(new CurriculumStage("Sentence Lv" + level, level, level));
-			}
-
-			questionRepository.save(new QuizQuestion(basicPron, "sh", null, "/ʃ/"));
-			questionRepository.save(new QuizQuestion(basicPron, "th", null, "/θ/"));
-			questionRepository.save(new QuizQuestion(basicPron, "ch", null, "/tʃ/"));
-			questionRepository.save(new QuizQuestion(basicPron, "ph", null, "/f/"));
-			questionRepository.save(new QuizQuestion(basicPron, "wh", null, "/w/"));
-			questionRepository.save(new QuizQuestion(basicPron, "ck", null, "/k/"));
-			questionRepository.save(new QuizQuestion(basicPron, "ng", null, "/ŋ/"));
-			questionRepository.save(new QuizQuestion(basicPron, "qu", null, "/kw/"));
-			questionRepository.save(new QuizQuestion(basicPron, "wr", null, "/ɹ/"));
-			questionRepository.save(new QuizQuestion(basicPron, "kn", null, "/n/"));
-			questionRepository.save(new QuizQuestion(basicPron, "gn", null, "/n/"));
-			questionRepository.save(new QuizQuestion(basicPron, "mb", null, "/m/"));
-
-			questionRepository.save(new QuizQuestion(word, "apples", null));
-			questionRepository.save(new QuizQuestion(word, "coffee", null));
-			questionRepository.save(new QuizQuestion(word, "water", null));
-			questionRepository.save(new QuizQuestion(word, "book", null));
-			questionRepository.save(new QuizQuestion(word, "school", null));
-			questionRepository.save(new QuizQuestion(word, "teacher", null));
-			questionRepository.save(new QuizQuestion(word, "window", null));
-			questionRepository.save(new QuizQuestion(word, "banana", null));
-			questionRepository.save(new QuizQuestion(word, "garden", null));
-			questionRepository.save(new QuizQuestion(word, "pencil", null));
-
-			questionRepository.save(new QuizQuestion(sentenceLv3, "I see a ____.", "cat", "/k/", 3, List.of("cat", "dog", "sun", "book", "fish")));
-			questionRepository.save(new QuizQuestion(sentenceLv3, "The ____ is hot.", "sun", "/s/", 3, List.of("moon", "sun", "book", "milk", "ship")));
-			questionRepository.save(new QuizQuestion(sentenceLv3, "I have a ____.", "book", "/b/", 3, List.of("fish", "book", "ship", "chin", "zebra")));
-			questionRepository.save(new QuizQuestion(sentenceLv3, "She likes ____.", "milk", "/m/", 3, List.of("milk", "play", "van", "cat", "sun")));
-			questionRepository.save(new QuizQuestion(sentenceLv3, "We ____ outside.", "play", "/p/", 3, List.of("play", "think", "brush", "zebra", "hold")));
-			questionRepository.save(new QuizQuestion(sentenceLv3, "The ____ can fly.", "bird", "/b/", 3, List.of("bird", "milk", "ship", "thumb", "book")));
-			questionRepository.save(new QuizQuestion(sentenceLv3, "I eat a red ____.", "apple", "/æ/", 3, List.of("apple", "zebra", "play", "fish", "sun")));
-			questionRepository.save(new QuizQuestion(sentenceLv3, "The ____ is blue.", "sky", "/s/", 3, List.of("milk", "sky", "cat", "book", "van")));
-			questionRepository.save(new QuizQuestion(sentenceLv3, "He has a toy ____.", "car", "/k/", 3, List.of("sun", "car", "ship", "milk", "brush")));
-			questionRepository.save(new QuizQuestion(sentenceLv3, "We sit on the ____.", "chair", "/tʃ/", 3, List.of("zoo", "chair", "moon", "book", "van")));
-
-			questionRepository.save(new QuizQuestion(sentenceLv4, "The ____ is in the dish.", "fish", "/f/", 4, List.of("fish", "ship", "book", "sun", "milk")));
-			questionRepository.save(new QuizQuestion(sentenceLv4, "I ____ my teeth every day.", "brush", "/br/", 4, List.of("jumps", "brush", "sings", "hold", "think")));
-			questionRepository.save(new QuizQuestion(sentenceLv4, "The ____ is on the sea.", "ship", "/ʃ/", 4, List.of("ship", "zebra", "milk", "chin", "van")));
-			questionRepository.save(new QuizQuestion(sentenceLv4, "My ____ is small.", "chin", "/tʃ/", 4, List.of("thumb", "chin", "teeth", "book", "fish")));
-			questionRepository.save(new QuizQuestion(sentenceLv4, "The ____ is very fast.", "van", "/v/", 4, List.of("cat", "fish", "van", "sun", "ship")));
-			questionRepository.save(new QuizQuestion(sentenceLv4, "I wash my hands in the ____.", "sink", "/s/", 4, List.of("sink", "zebra", "milk", "thumb", "fish")));
-			questionRepository.save(new QuizQuestion(sentenceLv4, "The ____ is under the tree.", "bench", "/b/", 4, List.of("brush", "bench", "ship", "zebra", "thumb")));
-			questionRepository.save(new QuizQuestion(sentenceLv4, "She wears a blue ____.", "shirt", "/ʃ/", 4, List.of("ship", "shirt", "van", "book", "chair")));
-			questionRepository.save(new QuizQuestion(sentenceLv4, "We cross the old ____.", "bridge", "/br/", 4, List.of("bridge", "zebra", "sings", "milk", "chair")));
-			questionRepository.save(new QuizQuestion(sentenceLv4, "The ____ is full of stars.", "night", "/n/", 4, List.of("night", "thumb", "fish", "chair", "ship")));
-
-			questionRepository.save(new QuizQuestion(sentenceLv5, "I ____ this is my thumb.", "think", "/θ/", THINK_ANIMATION, 5, List.of("take", "think", "stay", "make", "keep")));
-			questionRepository.save(new QuizQuestion(sentenceLv5, "____ is my brother.", "This", "/ð/", 5, List.of("That", "This", "These", "Those", "There")));
-			questionRepository.save(new QuizQuestion(sentenceLv5, "She ____ a happy song.", "sings", "/s/", 5, List.of("sings", "jumps", "brush", "thinks", "holds")));
-			questionRepository.save(new QuizQuestion(sentenceLv5, "The ____ is in the zoo.", "zebra", "/z/", 5, List.of("zebra", "ship", "thumb", "play", "fish")));
-			questionRepository.save(new QuizQuestion(sentenceLv5, "He ____ over the box.", "jumps", "/dʒ/", 5, List.of("jumps", "sings", "thinks", "holds", "brushes")));
-			questionRepository.save(new QuizQuestion(sentenceLv5, "Please ____ the door quietly.", "close", "/k/", 5, List.of("close", "brush", "think", "jumps", "hold")));
-			questionRepository.save(new QuizQuestion(sentenceLv5, "They ____ to school by bus.", "travel", "/tr/", 5, List.of("travel", "sings", "zebra", "close", "make")));
-			questionRepository.save(new QuizQuestion(sentenceLv5, "The baby is ____ on the bed.", "sleeping", "/sl/", 5, List.of("sleeping", "jumping", "thinking", "holding", "taking")));
-			questionRepository.save(new QuizQuestion(sentenceLv5, "We ____ the answer together.", "share", "/ʃ/", 5, List.of("share", "close", "travel", "brush", "think")));
-			questionRepository.save(new QuizQuestion(sentenceLv5, "Her voice sounds very ____.", "gentle", "/dʒ/", 5, List.of("gentle", "zebra", "thumb", "sleeping", "close")));
-		};
+		return args -> seedSentenceCurriculum(stageRepository, questionRepository);
 	}
 
-	private void backfillQuestionMetadata(QuizQuestionRepository questionRepository) {
-		List<QuizQuestion> updatedQuestions = new java.util.ArrayList<>();
-		for (QuizQuestion question : questionRepository.findAll()) {
-			if (applySeedMetadata(question)) {
-				updatedQuestions.add(question);
+	private void seedSentenceCurriculum(
+			CurriculumStageRepository stageRepository,
+			QuizQuestionRepository questionRepository) {
+		preserveReferenceStages(stageRepository);
+		List<CurriculumStage> stages = new ArrayList<>();
+		for (int level = 1; level <= 15; level++) {
+			stages.add(upsertStage(stageRepository, SENTENCE_STAGE_PREFIX + level, level, level));
+		}
+
+		List<QuestionSeed> seeds = questionSeeds(stages);
+		for (QuestionSeed seed : seeds) {
+			upsertQuestion(questionRepository, seed);
+		}
+		deleteLegacySentenceQuestions(questionRepository, seeds);
+		removeUnusedLegacyStage(stageRepository, "LEGACY_SENTENCE");
+	}
+
+	private void preserveReferenceStages(CurriculumStageRepository stageRepository) {
+		renameStageIfPresent(stageRepository, "BASIC_PRONUNCIATION", BASIC_REFERENCE_STAGE_NAME, 901, 1);
+		renameStageIfPresent(stageRepository, "WORD", WORD_REFERENCE_STAGE_NAME, 902, 2);
+	}
+
+	private CurriculumStage upsertStage(
+			CurriculumStageRepository stageRepository,
+			String stageName,
+			int order,
+			int difficulty) {
+		CurriculumStage stage = stageRepository.findByStageNameIgnoreCase(stageName)
+				.orElseGet(() -> new CurriculumStage(stageName, order, difficulty));
+		boolean changed = false;
+		if (stage.getOrder() != order) {
+			stage.setOrder(order);
+			changed = true;
+		}
+		if (stage.getDifficulty() != difficulty) {
+			stage.setDifficulty(difficulty);
+			changed = true;
+		}
+		if (stage.getId() == null || changed) {
+			return stageRepository.save(stage);
+		}
+		return stage;
+	}
+
+	private void renameStageIfPresent(
+			CurriculumStageRepository stageRepository,
+			String oldName,
+			String newName,
+			int order,
+			int difficulty) {
+		CurriculumStage stage = stageRepository.findByStageNameIgnoreCase(oldName)
+				.orElse(null);
+		if (stage == null) {
+			return;
+		}
+		stage.setStageName(newName);
+		stage.setOrder(order);
+		stage.setDifficulty(difficulty);
+		stageRepository.save(stage);
+	}
+
+	private void upsertQuestion(QuizQuestionRepository questionRepository, QuestionSeed seed) {
+		QuizQuestion question = questionRepository.findAll().stream()
+				.filter(existing -> seed.sentence().equals(existing.getSentence())
+						&& seed.answer().equalsIgnoreCase(existing.getAnswer() == null ? "" : existing.getAnswer()))
+				.findFirst()
+				.orElseGet(() -> new QuizQuestion(seed.stage(), seed.sentence(), seed.answer()));
+
+		question.setStage(seed.stage());
+		question.setAnswer(seed.answer());
+		question.setPhoneticSymbol(seed.phoneticSymbol());
+		question.setDifficulty(seed.difficulty());
+		question.setChoiceOptions(choicesFor(seed.answer()));
+		if ("think".equalsIgnoreCase(seed.answer())) {
+			question.setAnimationData(THINK_ANIMATION);
+		}
+		questionRepository.save(question);
+	}
+
+	private void deleteLegacySentenceQuestions(
+			QuizQuestionRepository questionRepository,
+			List<QuestionSeed> seeds) {
+		Set<String> activeKeys = new LinkedHashSet<>();
+		for (QuestionSeed seed : seeds) {
+			activeKeys.add(questionKey(seed.stage().getStageName(), seed.sentence(), seed.answer()));
+		}
+
+		for (QuizQuestion question : questionRepository.findByStage_StageNameStartingWithIgnoreCaseOrderByIdAsc(SENTENCE_STAGE_PREFIX)) {
+			String key = questionKey(
+					question.getStage().getStageName(),
+					question.getSentence(),
+					question.getAnswer()
+			);
+			if (!activeKeys.contains(key)) {
+				questionRepository.deleteIfUnused(question.getId());
 			}
 		}
-		if (!updatedQuestions.isEmpty()) {
-			questionRepository.saveAll(updatedQuestions);
+	}
+
+	private void removeUnusedLegacyStage(CurriculumStageRepository stageRepository, String stageName) {
+		CurriculumStage stage = stageRepository.findByStageNameIgnoreCase(stageName)
+				.orElse(null);
+		if (stage != null) {
+			stageRepository.delete(stage);
 		}
 	}
 
-	private boolean applySeedMetadata(QuizQuestion question) {
-		if (question.getSentence() == null) {
-			return false;
-		}
-
-		return switch (question.getSentence()) {
-			case "I see a ____." -> apply(question, "cat", "/k/", 3, List.of("cat", "dog", "sun", "book", "fish"), null);
-			case "The ____ is hot." -> apply(question, "sun", "/s/", 3, List.of("moon", "sun", "book", "milk", "ship"), null);
-			case "I have a ____." -> apply(question, "book", "/b/", 3, List.of("fish", "book", "ship", "chin", "zebra"), null);
-			case "She likes ____." -> apply(question, "milk", "/m/", 3, List.of("milk", "play", "van", "cat", "sun"), null);
-			case "We ____ outside." -> apply(question, "play", "/p/", 3, List.of("play", "think", "brush", "zebra", "hold"), null);
-			case "The ____ can fly." -> apply(question, "bird", "/b/", 3, List.of("bird", "milk", "ship", "thumb", "book"), null);
-			case "I eat a red ____." -> apply(question, "apple", "/æ/", 3, List.of("apple", "zebra", "play", "fish", "sun"), null);
-			case "The ____ is blue." -> apply(question, "sky", "/s/", 3, List.of("milk", "sky", "cat", "book", "van"), null);
-			case "He has a toy ____." -> apply(question, "car", "/k/", 3, List.of("sun", "car", "ship", "milk", "brush"), null);
-			case "We sit on the ____." -> apply(question, "chair", "/tʃ/", 3, List.of("zoo", "chair", "moon", "book", "van"), null);
-			case "The ____ is in the dish." -> apply(question, "fish", "/f/", 4, List.of("fish", "ship", "book", "sun", "milk"), null);
-			case "I ____ my teeth every day." -> apply(question, "brush", "/br/", 4, List.of("jumps", "brush", "sings", "hold", "think"), null);
-			case "The ____ is on the sea." -> apply(question, "ship", "/ʃ/", 4, List.of("ship", "zebra", "milk", "chin", "van"), null);
-			case "My ____ is small." -> apply(question, "chin", "/tʃ/", 4, List.of("thumb", "chin", "teeth", "book", "fish"), null);
-			case "The ____ is very fast." -> apply(question, "van", "/v/", 4, List.of("cat", "fish", "van", "sun", "ship"), null);
-			case "I wash my hands in the ____." -> apply(question, "sink", "/s/", 4, List.of("sink", "zebra", "milk", "thumb", "fish"), null);
-			case "The ____ is under the tree." -> apply(question, "bench", "/b/", 4, List.of("brush", "bench", "ship", "zebra", "thumb"), null);
-			case "She wears a blue ____." -> apply(question, "shirt", "/ʃ/", 4, List.of("ship", "shirt", "van", "book", "chair"), null);
-			case "We cross the old ____." -> apply(question, "bridge", "/br/", 4, List.of("bridge", "zebra", "sings", "milk", "chair"), null);
-			case "The ____ is full of stars." -> apply(question, "night", "/n/", 4, List.of("night", "thumb", "fish", "chair", "ship"), null);
-			case "I ____ this is my thumb." -> apply(question, "think", "/θ/", 5, List.of("take", "think", "stay", "make", "keep"), THINK_ANIMATION);
-			case "____ is my brother." -> apply(question, "This", "/ð/", 5, List.of("That", "This", "These", "Those", "There"), null);
-			case "She ____ a happy song." -> apply(question, "sings", "/s/", 5, List.of("sings", "jumps", "brush", "thinks", "holds"), null);
-			case "The ____ is in the zoo." -> apply(question, "zebra", "/z/", 5, List.of("zebra", "ship", "thumb", "play", "fish"), null);
-			case "He ____ over the box." -> apply(question, "jumps", "/dʒ/", 5, List.of("jumps", "sings", "thinks", "holds", "brushes"), null);
-			case "Please ____ the door quietly." -> apply(question, "close", "/k/", 5, List.of("close", "brush", "think", "jumps", "hold"), null);
-			case "They ____ to school by bus." -> apply(question, "travel", "/tr/", 5, List.of("travel", "sings", "zebra", "close", "make"), null);
-			case "The baby is ____ on the bed." -> apply(question, "sleeping", "/sl/", 5, List.of("sleeping", "jumping", "thinking", "holding", "taking"), null);
-			case "We ____ the answer together." -> apply(question, "share", "/ʃ/", 5, List.of("share", "close", "travel", "brush", "think"), null);
-			case "Her voice sounds very ____." -> apply(question, "gentle", "/dʒ/", 5, List.of("gentle", "zebra", "thumb", "sleeping", "close"), null);
-			default -> false;
-		};
+	private String questionKey(String stageName, String sentence, String answer) {
+		return "%s||%s||%s".formatted(
+				stageName == null ? "" : stageName.trim().toLowerCase(),
+				sentence == null ? "" : sentence.trim(),
+				answer == null ? "" : answer.trim().toLowerCase()
+		);
 	}
 
-	private boolean apply(
-			QuizQuestion question,
+	private List<String> choicesFor(String answer) {
+		LinkedHashSet<String> choices = new LinkedHashSet<>();
+		choices.add(answer);
+		int start = Math.max(0, WORD_CHOICES.indexOf(answer));
+		for (int offset = 1; choices.size() < 5 && offset <= WORD_CHOICES.size(); offset++) {
+			choices.add(WORD_CHOICES.get((start + offset) % WORD_CHOICES.size()));
+		}
+		List<String> ordered = new ArrayList<>(choices);
+		int rotation = Math.floorMod(answer.hashCode(), ordered.size());
+		java.util.Collections.rotate(ordered, rotation);
+		return ordered;
+	}
+
+	private List<QuestionSeed> questionSeeds(List<CurriculumStage> stages) {
+		List<QuestionSeed> seeds = new ArrayList<>();
+		List<WordSeed> words = wordSeeds();
+		for (int wordIndex = 0; wordIndex < words.size(); wordIndex++) {
+			WordSeed word = words.get(wordIndex);
+			for (int sentenceIndex = 0; sentenceIndex < word.sentences().size(); sentenceIndex++) {
+				CurriculumStage stage = stages.get((wordIndex + sentenceIndex * 3) % stages.size());
+				seeds.add(new QuestionSeed(
+						stage,
+						word.sentences().get(sentenceIndex),
+						word.answer(),
+						word.phoneticSymbol(),
+						stage.getDifficulty()
+				));
+			}
+		}
+		return seeds;
+	}
+
+	private List<WordSeed> wordSeeds() {
+		return List.of(
+				new WordSeed("rice", "/r/", List.of(
+						"I eat ______ every day.",
+						"We ordered fried ______ for dinner.",
+						"My mom cooks brown ______ at home.",
+						"The bowl is full of ______.",
+						"I like chicken and ______.")),
+				new WordSeed("light", "/l/", List.of(
+						"Please turn off the ______.",
+						"The room is too dark without the ______.",
+						"I bought a new desk ______.",
+						"The traffic ______ turned green.",
+						"The kitchen ______ is very bright.")),
+				new WordSeed("really", "/r/", List.of(
+						"I ______ like this song.",
+						"Are you ______ serious?",
+						"That movie was ______ fun.",
+						"I ______ want to go there.",
+						"She is ______ good at English.")),
+				new WordSeed("glass", "/gl/", List.of(
+						"Please bring me a ______ of water.",
+						"The window is made of ______.",
+						"I dropped the ______ on the floor.",
+						"This table has a ______ top.",
+						"Be careful with the broken ______.")),
+				new WordSeed("fan", "/f/", List.of(
+						"Turn on the ______, please.",
+						"I use a ______ in summer.",
+						"The ceiling ______ is spinning.",
+						"My room gets hot without the ______.",
+						"She bought a portable ______.")),
+				new WordSeed("phone", "/f/", List.of(
+						"My ______ is ringing.",
+						"I forgot my ______ at home.",
+						"Please answer the ______.",
+						"I use my ______ every morning.",
+						"He dropped his ______ yesterday.")),
+				new WordSeed("coffee", "/f/", List.of(
+						"I drink ______ every morning.",
+						"This café sells good ______.",
+						"Would you like some ______?",
+						"The smell of ______ is nice.",
+						"She ordered iced ______.")),
+				new WordSeed("very", "/v/", List.of(
+						"This problem is ______ difficult.",
+						"She runs ______ fast.",
+						"I am ______ tired today.",
+						"The food was ______ delicious.",
+						"He is ______ kind to everyone.")),
+				new WordSeed("vest", "/v/", List.of(
+						"He wore a black ______.",
+						"The suit comes with a ______.",
+						"She bought a warm winter ______.",
+						"The safety ______ is bright orange.",
+						"My grandfather likes wearing a ______.")),
+				new WordSeed("think", "/θ/", List.of(
+						"I ______ this is correct.",
+						"What do you ______ about it?",
+						"Please ______ carefully.",
+						"I don’t ______ he knows.",
+						"We should ______ before acting.")),
+				new WordSeed("three", "/θr/", List.of(
+						"I have ______ brothers.",
+						"There are ______ books on the table.",
+						"She bought ______ apples.",
+						"The movie starts in ______ minutes.",
+						"We need ______ chairs.")),
+				new WordSeed("thank", "/θ/", List.of(
+						"I want to ______ you.",
+						"Please ______ your teacher.",
+						"We should ______ everyone.",
+						"Don’t forget to say ______ you.",
+						"I called to ______ him.")),
+				new WordSeed("mother", "/ð/", List.of(
+						"My ______ cooks well.",
+						"I went shopping with my ______.",
+						"Her ______ works at a hospital.",
+						"My ______ likes flowers.",
+						"I called my ______ yesterday.")),
+				new WordSeed("she", "/ʃ/", List.of(
+						"______ is my best friend.",
+						"______ loves music.",
+						"______ goes to school early.",
+						"______ bought a new bag.",
+						"______ speaks English well.")),
+				new WordSeed("sheep", "/ʃ/", List.of(
+						"The farmer has many ______.",
+						"We saw a white ______.",
+						"The ______ is eating grass.",
+						"A ______ crossed the road.",
+						"The little ______ looks cute.")),
+				new WordSeed("shoes", "/ʃ/", List.of(
+						"I bought new ______.",
+						"Her ______ are dirty.",
+						"Please take off your ______.",
+						"These ______ are comfortable.",
+						"He wears black ______.")),
+				new WordSeed("zoo", "/z/", List.of(
+						"We went to the ______.",
+						"I saw lions at the ______.",
+						"The ______ is crowded today.",
+						"Children love visiting the ______.",
+						"The new panda arrived at the ______.")),
+				new WordSeed("water", "/w/", List.of(
+						"Please give me some ______.",
+						"I drink a lot of ______.",
+						"The bottle is full of ______.",
+						"Plants need ______ to grow.",
+						"Cold ______ tastes good today.")),
+				new WordSeed("window", "/w/", List.of(
+						"Please open the ______.",
+						"The ______ is very clean.",
+						"I looked outside the ______.",
+						"Rain hit the ______ loudly.",
+						"She closed the ______ before sleeping.")),
+				new WordSeed("apple", "/æ/", List.of(
+						"I ate an ______.",
+						"The red ______ looks fresh.",
+						"She bought an ______ pie.",
+						"An ______ fell from the tree.",
+						"I packed an ______ for lunch.")),
+				new WordSeed("cat", "/k/", List.of(
+						"The ______ is sleeping.",
+						"I have a black ______.",
+						"The ______ climbed the tree.",
+						"Her ______ likes fish.",
+						"The little ______ is cute.")),
+				new WordSeed("bed", "/b/", List.of(
+						"I went to ______ early.",
+						"My ______ is very soft.",
+						"The dog jumped on the ______.",
+						"She sat on the ______.",
+						"I cleaned my ______ this morning.")),
+				new WordSeed("milk", "/m/", List.of(
+						"I drink ______ every morning.",
+						"The baby needs ______.",
+						"Please buy some ______.",
+						"She poured ______ into the glass.",
+						"Chocolate ______ is my favorite.")),
+				new WordSeed("sing", "/ŋ/", List.of(
+						"I love to ______.",
+						"Can you ______ this song?",
+						"We will ______ together.",
+						"She can ______ very well.",
+						"They ______ at church every Sunday.")),
+				new WordSeed("phone", "/f/", List.of(
+						"I checked my ______.",
+						"Her ______ battery is dead.",
+						"Please charge your ______.",
+						"My ______ fell into the water.",
+						"I bought a new ______ case.")),
+				new WordSeed("choice", "/tʃ/", List.of(
+						"That was a good ______.",
+						"You have no other ______.",
+						"It is your ______ to decide.",
+						"She made the right ______.",
+						"We respected his ______.")),
+				new WordSeed("girl", "/ɝ/", List.of(
+						"The ______ is reading a book.",
+						"I met a friendly ______.",
+						"That ______ is my cousin.",
+						"The little ______ smiled at me.",
+						"A ______ won the contest.")),
+				new WordSeed("world", "/w/", List.of(
+						"The ______ is changing fast.",
+						"I want to travel around the ______.",
+						"English is spoken worldwide around the ______.",
+						"The news shocked the whole ______.",
+						"She dreams of seeing the ______.")),
+				new WordSeed("map", "/m/", List.of(
+						"Please check the ______.",
+						"I opened the city ______.",
+						"The treasure is on the ______.",
+						"We used a ______ while hiking.",
+						"The subway ______ is easy to read.")),
+				new WordSeed("spring", "/spr/", List.of(
+						"Flowers bloom in ______.",
+						"I like warm ______ weather.",
+						"We traveled during ______ break.",
+						"______ comes after winter.",
+						"Many festivals happen in ______."))
+		);
+	}
+
+	private record WordSeed(
 			String answer,
 			String phoneticSymbol,
-			int difficulty,
-			List<String> choices,
-			String animationData) {
-		boolean changed = false;
-		if ((question.getAnswer() == null || question.getAnswer().isBlank()) && answer != null) {
-			question.setAnswer(answer);
-			changed = true;
-		}
-		if ((question.getPhoneticSymbol() == null || question.getPhoneticSymbol().isBlank()) && phoneticSymbol != null) {
-			question.setPhoneticSymbol(phoneticSymbol);
-			changed = true;
-		}
-		if (question.getDifficulty() != difficulty) {
-			question.setDifficulty(difficulty);
-			changed = true;
-		}
-		if (question.getChoiceOptions().isEmpty() && choices != null && !choices.isEmpty()) {
-			question.setChoiceOptions(choices);
-			changed = true;
-		}
-		if ((question.getAnimationData() == null || question.getAnimationData().isBlank()) && animationData != null && !animationData.isBlank()) {
-			question.setAnimationData(animationData);
-			changed = true;
-		}
-		return changed;
+			List<String> sentences
+	) {
+	}
+
+	private record QuestionSeed(
+			CurriculumStage stage,
+			String sentence,
+			String answer,
+			String phoneticSymbol,
+			int difficulty
+	) {
 	}
 }

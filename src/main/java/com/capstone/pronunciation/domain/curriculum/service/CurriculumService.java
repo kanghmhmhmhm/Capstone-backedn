@@ -57,7 +57,9 @@ public class CurriculumService {
 		User user = userRepository.findByEmail(email)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-		List<CurriculumStage> stages = stageRepository.findAllByOrderByOrderAsc();
+		List<CurriculumStage> stages = stageRepository.findAllByOrderByOrderAsc().stream()
+				.filter(stage -> isSentenceStage(stage.getStageName()))
+				.toList();
 		Map<Long, Boolean> unlockedByStageId = buildUnlockedStageMap(user.getId(), stages);
 		List<StageProgressResponse> responses = new ArrayList<>(stages.size());
 
@@ -86,7 +88,9 @@ public class CurriculumService {
 	public List<LessonSummaryResponse> lessonsByStageName(String email, String stageName) {
 		User user = userRepository.findByEmail(email)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-		List<CurriculumStage> stages = stageRepository.findAllByOrderByOrderAsc();
+		List<CurriculumStage> stages = stageRepository.findAllByOrderByOrderAsc().stream()
+				.filter(stage -> isSentenceStage(stage.getStageName()))
+				.toList();
 		Map<Long, Boolean> unlockedByStageId = buildUnlockedStageMap(user.getId(), stages);
 
 		List<QuizQuestion> questions;
@@ -132,7 +136,7 @@ public class CurriculumService {
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
 		ensureUnlocked(q.getStage(), buildUnlockedStageMap(
 				user.getId(),
-				stageRepository.findAllByOrderByOrderAsc()));
+				sentenceStages()));
 
 		boolean completed = sessionResultRepository.existsByUserAndQuestion(user.getId(), questionId);
 		return new LessonDetailResponse(
@@ -158,7 +162,7 @@ public class CurriculumService {
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
 		ensureUnlocked(q.getStage(), buildUnlockedStageMap(
 				user.getId(),
-				stageRepository.findAllByOrderByOrderAsc()));
+				sentenceStages()));
 
 		if (sessionResultRepository.existsByUserAndQuestion(user.getId(), questionId)) {
 			return;
@@ -192,6 +196,12 @@ public class CurriculumService {
 
 	private static boolean isSentenceCategory(String stageName) {
 		return stageName != null && SENTENCE_STAGE_NAME.equals(stageName.trim().toLowerCase());
+	}
+
+	private List<CurriculumStage> sentenceStages() {
+		return stageRepository.findAllByOrderByOrderAsc().stream()
+				.filter(stage -> isSentenceStage(stage.getStageName()))
+				.toList();
 	}
 
 	private Map<Long, Boolean> buildUnlockedStageMap(Long userId, List<CurriculumStage> stages) {

@@ -16,9 +16,12 @@ public record FastApiDispatchResponse(
 		String selectedChoice,
 		String feedbackText,
 		String overallBand,
+		String mildFeedback,
+		String spicyFeedback,
 		JsonNode phonemeFeedback,
 		JsonNode mouthComparisonAssets,
 		JsonNode llmFeedbackByMode,
+		JsonNode llmContext,
 		JsonNode feedbackPayload
 ) {
 }
