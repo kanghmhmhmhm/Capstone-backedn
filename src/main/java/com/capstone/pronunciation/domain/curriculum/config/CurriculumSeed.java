@@ -8,6 +8,7 @@ import java.util.Set;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.capstone.pronunciation.domain.curriculum.entity.CurriculumStage;
 import com.capstone.pronunciation.domain.curriculum.repository.CurriculumStageRepository;
@@ -20,6 +21,7 @@ public class CurriculumSeed {
 	private static final String SENTENCE_STAGE_PREFIX = "Sentence Lv";
 	private static final String BASIC_REFERENCE_STAGE_NAME = "REFERENCE_BASIC_PRONUNCIATION";
 	private static final String WORD_REFERENCE_STAGE_NAME = "REFERENCE_WORDS";
+	private static final String LEGACY_SENTENCE_REFERENCE_STAGE_NAME = "REFERENCE_LEGACY_SENTENCES";
 	private static final String THINK_ANIMATION = """
 			{"timedPhones":[{"phone":"TH","startMs":0,"endMs":120},{"phone":"IH1","startMs":120,"endMs":260},{"phone":"NG","startMs":260,"endMs":420},{"phone":"K","startMs":420,"endMs":480}],"totalDurationMs":480}
 			""";
@@ -30,8 +32,13 @@ public class CurriculumSeed {
 	);
 
 	@Bean
-	ApplicationRunner seedCurriculum(CurriculumStageRepository stageRepository, QuizQuestionRepository questionRepository) {
-		return args -> seedSentenceCurriculum(stageRepository, questionRepository);
+	ApplicationRunner seedCurriculum(
+			CurriculumStageRepository stageRepository,
+			QuizQuestionRepository questionRepository,
+			TransactionTemplate transactionTemplate) {
+		return args -> transactionTemplate.executeWithoutResult(status ->
+				seedSentenceCurriculum(stageRepository, questionRepository)
+		);
 	}
 
 	private void seedSentenceCurriculum(
@@ -47,8 +54,8 @@ public class CurriculumSeed {
 		for (QuestionSeed seed : seeds) {
 			upsertQuestion(questionRepository, seed);
 		}
-		deleteLegacySentenceQuestions(questionRepository, seeds);
-		removeUnusedLegacyStage(stageRepository, "LEGACY_SENTENCE");
+		deleteLegacySentenceQuestions(stageRepository, questionRepository, seeds);
+		removeUnusedLegacyStage(stageRepository, questionRepository, "LEGACY_SENTENCE");
 	}
 
 	private void preserveReferenceStages(CurriculumStageRepository stageRepository) {
@@ -114,36 +121,50 @@ public class CurriculumSeed {
 	}
 
 	private void deleteLegacySentenceQuestions(
+			CurriculumStageRepository stageRepository,
 			QuizQuestionRepository questionRepository,
 			List<QuestionSeed> seeds) {
 		Set<String> activeKeys = new LinkedHashSet<>();
 		for (QuestionSeed seed : seeds) {
-			activeKeys.add(questionKey(seed.stage().getStageName(), seed.sentence(), seed.answer()));
+			activeKeys.add(questionKey(seed.sentence(), seed.answer()));
 		}
 
+		CurriculumStage legacyReferenceStage = null;
 		for (QuizQuestion question : questionRepository.findByStage_StageNameStartingWithIgnoreCaseOrderByIdAsc(SENTENCE_STAGE_PREFIX)) {
 			String key = questionKey(
-					question.getStage().getStageName(),
 					question.getSentence(),
 					question.getAnswer()
 			);
 			if (!activeKeys.contains(key)) {
 				questionRepository.deleteIfUnused(question.getId());
+				if (questionRepository.existsById(question.getId())) {
+					if (legacyReferenceStage == null) {
+						legacyReferenceStage = upsertStage(
+								stageRepository,
+								LEGACY_SENTENCE_REFERENCE_STAGE_NAME,
+								903,
+								3
+						);
+					}
+					questionRepository.moveToStage(question.getId(), legacyReferenceStage);
+				}
 			}
 		}
 	}
 
-	private void removeUnusedLegacyStage(CurriculumStageRepository stageRepository, String stageName) {
+	private void removeUnusedLegacyStage(
+			CurriculumStageRepository stageRepository,
+			QuizQuestionRepository questionRepository,
+			String stageName) {
 		CurriculumStage stage = stageRepository.findByStageNameIgnoreCase(stageName)
 				.orElse(null);
-		if (stage != null) {
+		if (stage != null && questionRepository.countByStage_Id(stage.getId()) == 0) {
 			stageRepository.delete(stage);
 		}
 	}
 
-	private String questionKey(String stageName, String sentence, String answer) {
-		return "%s||%s||%s".formatted(
-				stageName == null ? "" : stageName.trim().toLowerCase(),
+	private String questionKey(String sentence, String answer) {
+		return "%s||%s".formatted(
 				sentence == null ? "" : sentence.trim(),
 				answer == null ? "" : answer.trim().toLowerCase()
 		);

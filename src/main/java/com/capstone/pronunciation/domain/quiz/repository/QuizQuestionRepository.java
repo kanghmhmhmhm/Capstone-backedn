@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.capstone.pronunciation.domain.curriculum.entity.CurriculumStage;
 import com.capstone.pronunciation.domain.quiz.entity.QuizQuestion;
 
 public interface QuizQuestionRepository extends JpaRepository<QuizQuestion, Long> {
@@ -39,6 +40,19 @@ public interface QuizQuestionRepository extends JpaRepository<QuizQuestion, Long
 			      from SessionResult r
 			      where r.question.id = q.id
 			  )
+			  and not exists (
+			      select 1
+			      from SessionQuestion sq
+			      where sq.question.id = q.id
+			  )
 			""")
 	void deleteIfUnused(@Param("questionId") Long questionId);
+
+	@Modifying
+	@Query("""
+			update QuizQuestion q
+			set q.stage = :stage
+			where q.id = :questionId
+			""")
+	void moveToStage(@Param("questionId") Long questionId, @Param("stage") CurriculumStage stage);
 }
