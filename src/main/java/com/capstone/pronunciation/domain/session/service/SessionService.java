@@ -269,10 +269,7 @@ public class SessionService {
 
 		LearningSession reusableSession = null;
 		for (LearningSession candidate : openSessions) {
-			boolean hasAssignedQuestions = !sessionQuestionRepository
-					.findBySession_IdOrderByQuestionOrderAsc(candidate.getId())
-					.isEmpty();
-			if (hasAssignedQuestions) {
+			if (hasReusableQuestions(candidate, selectedLevel)) {
 				reusableSession = candidate;
 				break;
 			}
@@ -285,6 +282,20 @@ public class SessionService {
 
 		closeOtherOpenSessions(openSessions, reusableSession.getId());
 		return reusableSession;
+	}
+
+	private boolean hasReusableQuestions(LearningSession session, Integer selectedLevel) {
+		List<SessionQuestion> assignedQuestions = sessionQuestionRepository
+				.findBySession_IdOrderByQuestionOrderAsc(session.getId());
+		if (assignedQuestions.isEmpty()) {
+			return false;
+		}
+
+		String expectedStageName = sentenceStageName(selectedLevel);
+		return assignedQuestions.stream()
+				.allMatch(sessionQuestion -> expectedStageName.equalsIgnoreCase(
+						sessionQuestion.getQuestion().getStage().getStageName()
+				));
 	}
 
 	private void closeOpenSessions(List<LearningSession> sessions) {
