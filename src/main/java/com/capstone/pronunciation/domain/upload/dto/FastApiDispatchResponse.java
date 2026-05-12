@@ -8,6 +8,8 @@ public record FastApiDispatchResponse(
 		String fastApiUrl,
 		int statusCode,
 		Long resultId,
+		Long questionId,
+		String animationData,
 		Double score,
 		Double voiceScore,
 		Double visionScore,

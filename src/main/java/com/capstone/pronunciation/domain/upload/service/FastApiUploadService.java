@@ -143,6 +143,8 @@ public class FastApiUploadService {
 				analyzePath,
 				responseEntity.statusCode(),
 				savedResult.resultId(),
+				savedResult.questionId(),
+				savedResult.animationData(),
 				savedResult.score(),
 				savedResult.voiceScore(),
 				savedResult.visionScore(),
@@ -276,6 +278,8 @@ public class FastApiUploadService {
 
 		return new SavedAnalysisResult(
 				result.getId(),
+				question.getId(),
+				question.getAnimationData(),
 				finalScore,
 				voiceScore,
 				visionScore,
@@ -793,6 +797,8 @@ public class FastApiUploadService {
 
 	private record SavedAnalysisResult(
 			Long resultId,
+			Long questionId,
+			String animationData,
 			Double score,
 			Double voiceScore,
 			Double visionScore,
