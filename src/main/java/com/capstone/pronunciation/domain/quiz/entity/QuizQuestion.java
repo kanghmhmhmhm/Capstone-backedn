@@ -33,7 +33,7 @@ public class QuizQuestion {
 	private String phoneticSymbol;
 
 	@Lob
-	@Column(name = "animation_data")
+	@Column(name = "animation_data", columnDefinition = "LONGTEXT")
 	private String animationData;
 
 	@Lob

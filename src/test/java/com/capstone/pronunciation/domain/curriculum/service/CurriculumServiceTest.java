@@ -49,27 +49,27 @@ class CurriculumServiceTest {
 	private SessionResultRepository sessionResultRepository;
 
 	private User user;
-	private CurriculumStage basicPronunciationStage;
-	private CurriculumStage wordStage;
+	private CurriculumStage sentenceLv1Stage;
+	private CurriculumStage sentenceLv2Stage;
 	private CurriculumStage sentenceLv3Stage;
 	private CurriculumStage sentenceLv4Stage;
-	private QuizQuestion wordQuestion;
+	private QuizQuestion sentenceLv2Question;
 	private QuizQuestion sentenceLv3Question;
 	private QuizQuestion sentenceLv4Question;
 
 	@BeforeEach
 	void setUp() {
 		user = userRepository.save(new User("learner@example.com", "encoded-password", "Learner", "Learner", 1));
-		basicPronunciationStage = curriculumStageRepository.findByStageNameIgnoreCase("BASIC_PRONUNCIATION")
+		sentenceLv1Stage = curriculumStageRepository.findByStageNameIgnoreCase("Sentence Lv1")
 				.orElseThrow();
-		wordStage = curriculumStageRepository.findByStageNameIgnoreCase("WORD")
+		sentenceLv2Stage = curriculumStageRepository.findByStageNameIgnoreCase("Sentence Lv2")
 				.orElseThrow();
 		sentenceLv3Stage = curriculumStageRepository.findByStageNameIgnoreCase("Sentence Lv3")
 				.orElseThrow();
 		sentenceLv4Stage = curriculumStageRepository.findByStageNameIgnoreCase("Sentence Lv4")
 				.orElseThrow();
 
-		wordQuestion = quizQuestionRepository.findByStage_IdOrderByIdAsc(wordStage.getId()).stream()
+		sentenceLv2Question = quizQuestionRepository.findByStage_IdOrderByIdAsc(sentenceLv2Stage.getId()).stream()
 				.findFirst()
 				.orElseThrow();
 		sentenceLv3Question = quizQuestionRepository.findByStage_IdOrderByIdAsc(sentenceLv3Stage.getId()).stream()
@@ -84,16 +84,16 @@ class CurriculumServiceTest {
 	void stages_onlyUnlockNextStageAfterPreviousStageIsCompleted() {
 		List<StageProgressResponse> beforeCompletion = curriculumService.stages(user.getEmail());
 
-		assertStageUnlocked(beforeCompletion, "BASIC_PRONUNCIATION", true);
-		assertStageUnlocked(beforeCompletion, "WORD", false);
+		assertStageUnlocked(beforeCompletion, "Sentence Lv1", true);
+		assertStageUnlocked(beforeCompletion, "Sentence Lv2", false);
 		assertStageUnlocked(beforeCompletion, "Sentence Lv3", false);
 
-		completeStage(basicPronunciationStage, 100.0);
+		completeStage(sentenceLv1Stage, 100.0);
 
 		List<StageProgressResponse> afterCompletion = curriculumService.stages(user.getEmail());
 
-		assertStageUnlocked(afterCompletion, "BASIC_PRONUNCIATION", true);
-		assertStageUnlocked(afterCompletion, "WORD", true);
+		assertStageUnlocked(afterCompletion, "Sentence Lv1", true);
+		assertStageUnlocked(afterCompletion, "Sentence Lv2", true);
 		assertStageUnlocked(afterCompletion, "Sentence Lv3", false);
 	}
 
@@ -101,19 +101,19 @@ class CurriculumServiceTest {
 	void lockedWordLevelCannotBeViewedOrCompleted() {
 		IllegalArgumentException detailException = assertThrows(
 				IllegalArgumentException.class,
-				() -> curriculumService.questionDetail(user.getEmail(), wordQuestion.getId()));
+				() -> curriculumService.questionDetail(user.getEmail(), sentenceLv2Question.getId()));
 		assertEquals("잠금 해제되지 않은 단계입니다.", detailException.getMessage());
 
 		IllegalArgumentException completeException = assertThrows(
 				IllegalArgumentException.class,
-				() -> curriculumService.completeQuestion(user.getEmail(), wordQuestion.getId(), 100));
+				() -> curriculumService.completeQuestion(user.getEmail(), sentenceLv2Question.getId(), 100));
 		assertEquals("잠금 해제되지 않은 단계입니다.", completeException.getMessage());
 	}
 
 	@Test
 	void sentenceCategoryReturnsOnlyUnlockedSentenceLessons() {
-		completeStage(basicPronunciationStage, 100.0);
-		completeStage(wordStage, 100.0);
+		completeStage(sentenceLv1Stage, 100.0);
+		completeStage(sentenceLv2Stage, 100.0);
 
 		List<Long> lessonIdsBeforeCompletion = curriculumService.lessonsByStageName(user.getEmail(), "SENTENCE").stream()
 				.map(lesson -> lesson.id())
