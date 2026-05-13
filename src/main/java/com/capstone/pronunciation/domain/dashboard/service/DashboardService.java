@@ -6,8 +6,10 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -22,6 +24,7 @@ import com.capstone.pronunciation.domain.dashboard.dto.DashboardStageSummaryResp
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardSummaryResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardTodayQuestionResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardWeeklyProgressResponse;
+import com.capstone.pronunciation.domain.dashboard.dto.DashboardWrongWordResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.WeakPhonemeResponse;
 import com.capstone.pronunciation.domain.feedback.entity.FeedbackLog;
 import com.capstone.pronunciation.domain.feedback.repository.FeedbackLogRepository;
@@ -38,6 +41,7 @@ import com.capstone.pronunciation.domain.user.repository.UserRepository;
 public class DashboardService {
 	private static final ZoneId APP_ZONE = ZoneId.of("Asia/Seoul");
 	private static final int HEATMAP_DAYS = 28;
+	private static final double CORRECT_SCORE_THRESHOLD = 70.0;
 
 	private final UserRepository userRepository;
 	private final LearningSessionRepository learningSessionRepository;
@@ -68,7 +72,9 @@ public class DashboardService {
 
 		List<LearningSession> sessions = learningSessionRepository.findByUser_IdOrderByStartTimeDesc(user.getId());
 		List<SessionResult> results = sessionResultRepository.findDetailedByUserId(user.getId());
-		List<CurriculumStage> stages = curriculumStageRepository.findAllByOrderByOrderAsc();
+		List<CurriculumStage> stages = curriculumStageRepository.findAllByOrderByOrderAsc().stream()
+				.filter(stage -> isSentenceStage(stage.getStageName()))
+				.toList();
 		List<FeedbackLog> feedbackLogs = feedbackLogRepository.findByUserId(user.getId());
 
 		long totalSessions = sessions.size();
@@ -85,6 +91,8 @@ public class DashboardService {
 		List<DashboardStageSummaryResponse> stageProgress = stages.stream()
 				.map(stage -> toStageSummary(user.getId(), stage))
 				.toList();
+		long learningStreak = calculateLearningStreak(sessions);
+		double achievementRate = calculateAchievementRate(stageProgress);
 
 		return new DashboardSummaryResponse(
 				user.getId(),
@@ -94,8 +102,12 @@ public class DashboardService {
 				totalSessions,
 				completedSessions,
 				recentStudyCount,
+				learningStreak,
 				averageScore,
+				achievementRate,
+				calculateRankingPercentile(user.getId()),
 				weakPhonemes,
+				buildTopWrongWords(results),
 				stageProgress,
 				buildWeeklyProgress(results),
 				results.stream().limit(5).map(this::toRecentResult).toList(),
@@ -104,6 +116,39 @@ public class DashboardService {
 				todayAverageScore(results),
 				recommendTodayQuestion(user)
 		);
+	}
+
+	private List<DashboardWrongWordResponse> buildTopWrongWords(List<SessionResult> results) {
+		record WordStats(String word, long mistakeCount, long attempts, double averageScore) {
+		}
+
+		return results.stream()
+				.filter(result -> result.getQuestion().getAnswer() != null && !result.getQuestion().getAnswer().isBlank())
+				.collect(Collectors.groupingBy(result -> result.getQuestion().getAnswer().trim().toLowerCase()))
+				.entrySet()
+				.stream()
+				.map(entry -> {
+					long mistakes = entry.getValue().stream()
+							.filter(result -> result.getScore() < CORRECT_SCORE_THRESHOLD)
+							.count();
+					double average = entry.getValue().stream()
+							.mapToDouble(SessionResult::getScore)
+							.average()
+							.orElse(0);
+					return new WordStats(entry.getKey(), mistakes, entry.getValue().size(), round(average));
+				})
+				.filter(stats -> stats.mistakeCount() > 0)
+				.sorted(Comparator.comparingLong(WordStats::mistakeCount).reversed()
+						.thenComparingDouble(WordStats::averageScore)
+						.thenComparing(WordStats::word))
+				.limit(5)
+				.map(stats -> new DashboardWrongWordResponse(
+						stats.word(),
+						stats.mistakeCount(),
+						stats.attempts(),
+						stats.averageScore()
+				))
+				.toList();
 	}
 
 	private List<WeakPhonemeResponse> buildWeakPhonemes(List<SessionResult> results) {
@@ -166,23 +211,27 @@ public class DashboardService {
 	}
 
 	private List<QuizQuestion> resolveQuestionsForLevel(int level) {
-		if (level <= 1) {
-			return quizQuestionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc("BASIC_PRONUNCIATION");
-		}
-		if (level == 2) {
-			return quizQuestionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc("WORD");
-		}
-		return quizQuestionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc("Sentence Lv" + level);
+		int boundedLevel = Math.max(1, Math.min(15, level));
+		return quizQuestionRepository.findByStage_StageNameIgnoreCaseOrderByIdAsc("Sentence Lv" + boundedLevel);
 	}
 
 	private DashboardRecentResultResponse toRecentResult(SessionResult result) {
+		String answer = result.getQuestion().getAnswer() != null && !result.getQuestion().getAnswer().isBlank()
+				? result.getQuestion().getAnswer()
+				: result.getQuestion().getSentence();
+		String transcript = result.getSubmission() == null ? null : result.getSubmission().getTranscript();
+		String selectedChoice = result.getSubmission() == null ? null : result.getSubmission().getSelectedChoice();
 		return new DashboardRecentResultResponse(
 				result.getId(),
 				result.getSession().getId(),
 				result.getQuestion().getId(),
 				result.getQuestion().getStage().getStageName(),
 				result.getQuestion().getSentence(),
+				answer,
+				transcript,
+				selectedChoice,
 				round(result.getScore()),
+				result.getScore() >= CORRECT_SCORE_THRESHOLD,
 				result.getCreatedAt()
 		);
 	}
@@ -219,6 +268,66 @@ public class DashboardService {
 		);
 	}
 
+	private long calculateLearningStreak(List<LearningSession> sessions) {
+		Set<LocalDate> studiedDates = sessions.stream()
+				.map(LearningSession::getStartTime)
+				.filter(instant -> instant != null)
+				.map(instant -> LocalDate.ofInstant(instant, APP_ZONE))
+				.collect(Collectors.toCollection(HashSet::new));
+
+		long streak = 0;
+		LocalDate cursor = LocalDate.now(APP_ZONE);
+		while (studiedDates.contains(cursor)) {
+			streak++;
+			cursor = cursor.minusDays(1);
+		}
+		return streak;
+	}
+
+	private double calculateAchievementRate(List<DashboardStageSummaryResponse> stageProgress) {
+		long totalQuestions = stageProgress.stream()
+				.mapToLong(DashboardStageSummaryResponse::totalQuestions)
+				.sum();
+		if (totalQuestions == 0) {
+			return 0;
+		}
+		long completedQuestions = stageProgress.stream()
+				.mapToLong(DashboardStageSummaryResponse::completedQuestions)
+				.sum();
+		return round((double) completedQuestions * 100.0 / totalQuestions);
+	}
+
+	private Double calculateRankingPercentile(Long userId) {
+		record RankingCandidate(Long userId, double totalScore, double averageScore, long solvedCount, String nickname) {
+		}
+
+		List<RankingCandidate> candidates = userRepository.findAll().stream()
+				.map(user -> {
+					List<SessionResult> userResults = sessionResultRepository.findDetailedByUserId(user.getId());
+					if (userResults.isEmpty()) {
+						return null;
+					}
+					double totalScore = round(userResults.stream().mapToDouble(SessionResult::getScore).sum());
+					double averageScore = round(userResults.stream().mapToDouble(SessionResult::getScore).average().orElse(0));
+					return new RankingCandidate(user.getId(), totalScore, averageScore, userResults.size(), resolveNickname(user));
+				})
+				.filter(candidate -> candidate != null)
+				.sorted(Comparator.comparingDouble(RankingCandidate::totalScore).reversed()
+						.thenComparing(Comparator.comparingDouble(RankingCandidate::averageScore).reversed())
+						.thenComparing(Comparator.comparingLong(RankingCandidate::solvedCount).reversed())
+						.thenComparing(RankingCandidate::nickname))
+				.toList();
+		if (candidates.isEmpty()) {
+			return null;
+		}
+		for (int index = 0; index < candidates.size(); index++) {
+			if (candidates.get(index).userId().equals(userId)) {
+				return round(((double) (index + 1) / (double) candidates.size()) * 100.0);
+			}
+		}
+		return null;
+	}
+
 	private Double todayAverageScore(List<SessionResult> results) {
 		LocalDate today = LocalDate.now(APP_ZONE);
 		List<SessionResult> todayResults = results.stream()
@@ -243,5 +352,9 @@ public class DashboardService {
 			return user.getNickname();
 		}
 		return user.getName();
+	}
+
+	private static boolean isSentenceStage(String stageName) {
+		return stageName != null && stageName.trim().toLowerCase().startsWith("sentence lv");
 	}
 }

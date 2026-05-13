@@ -8,7 +8,11 @@ public record DashboardRecentResultResponse(
 		Long questionId,
 		String stageName,
 		String sentence,
+		String answer,
+		String transcript,
+		String selectedChoice,
 		Double score,
+		boolean correct,
 		Instant createdAt
 ) {
 }
