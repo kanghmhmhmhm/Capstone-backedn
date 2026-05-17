@@ -18,11 +18,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.capstone.pronunciation.domain.curriculum.entity.CurriculumStage;
 import com.capstone.pronunciation.domain.curriculum.repository.CurriculumStageRepository;
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardHeatmapCellResponse;
+import com.capstone.pronunciation.domain.dashboard.dto.DashboardOverallFeedbackResponse;
+import com.capstone.pronunciation.domain.dashboard.dto.DashboardPronunciationComparisonGroupResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardRecentResultResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardReviewNoteResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardStageSummaryResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardSummaryResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardTodayQuestionResponse;
+import com.capstone.pronunciation.domain.dashboard.dto.DashboardWeeklyComparisonResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardWeeklyProgressResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.DashboardWrongWordResponse;
 import com.capstone.pronunciation.domain.dashboard.dto.WeakPhonemeResponse;
@@ -88,6 +91,10 @@ public class DashboardService {
 
 		Double averageScore = averageScore(results);
 		List<WeakPhonemeResponse> weakPhonemes = buildWeakPhonemes(results);
+		List<DashboardWrongWordResponse> topWrongWords = buildTopWrongWords(results);
+		DashboardWeeklyComparisonResponse weeklyComparison = buildWeeklyComparison(results);
+		List<DashboardPronunciationComparisonGroupResponse> pronunciationComparisonGroups =
+				buildPronunciationComparisonGroups(results);
 		List<DashboardStageSummaryResponse> stageProgress = stages.stream()
 				.map(stage -> toStageSummary(user.getId(), stage))
 				.toList();
@@ -107,7 +114,10 @@ public class DashboardService {
 				achievementRate,
 				calculateRankingPercentile(user.getId()),
 				weakPhonemes,
-				buildTopWrongWords(results),
+				topWrongWords,
+				weeklyComparison,
+				pronunciationComparisonGroups,
+				buildOverallFeedback(averageScore, weeklyComparison, weakPhonemes, topWrongWords),
 				stageProgress,
 				buildWeeklyProgress(results),
 				results.stream().limit(5).map(this::toRecentResult).toList(),
@@ -149,6 +159,122 @@ public class DashboardService {
 						stats.averageScore()
 				))
 				.toList();
+	}
+
+	private DashboardWeeklyComparisonResponse buildWeeklyComparison(List<SessionResult> results) {
+		LocalDate today = LocalDate.now(APP_ZONE);
+		LocalDate currentStart = today.minusDays(6);
+		LocalDate previousStart = today.minusDays(13);
+		LocalDate previousEnd = today.minusDays(7);
+
+		List<SessionResult> currentWeekResults = results.stream()
+				.filter(result -> isBetween(result, currentStart, today))
+				.toList();
+		List<SessionResult> previousWeekResults = results.stream()
+				.filter(result -> isBetween(result, previousStart, previousEnd))
+				.toList();
+
+		Double currentAverage = averageScore(currentWeekResults);
+		Double previousAverage = averageScore(previousWeekResults);
+		Double scoreDelta = currentAverage == null || previousAverage == null
+				? null
+				: round(currentAverage - previousAverage);
+		long activityDelta = currentWeekResults.size() - previousWeekResults.size();
+
+		return new DashboardWeeklyComparisonResponse(
+				currentAverage,
+				previousAverage,
+				scoreDelta,
+				currentWeekResults.size(),
+				previousWeekResults.size(),
+				activityDelta,
+				resolveTrend(scoreDelta, activityDelta)
+		);
+	}
+
+	private List<DashboardPronunciationComparisonGroupResponse> buildPronunciationComparisonGroups(
+			List<SessionResult> results) {
+		record ComparisonGroup(String label, List<String> phonemes) {
+		}
+		record GroupStats(ComparisonGroup group, List<SessionResult> results, long mistakeCount, Double averageScore) {
+		}
+
+		List<ComparisonGroup> groups = List.of(
+				new ComparisonGroup("[r] vs [l] 구분", List.of("/r/", "/l/", "/ɝ/", "/θr/", "/spr/", "/gl/")),
+				new ComparisonGroup("[f] vs [v] 구분", List.of("/f/", "/v/")),
+				new ComparisonGroup("[θ] vs [ð] 구분", List.of("/θ/", "/θr/", "/ð/")),
+				new ComparisonGroup("[ʃ] vs [tʃ] 구분", List.of("/ʃ/", "/tʃ/")),
+				new ComparisonGroup("[æ] vs [e] 구분", List.of("/æ/", "/e/"))
+		);
+
+		return groups.stream()
+				.map(group -> {
+					List<SessionResult> groupResults = results.stream()
+							.filter(result -> matchesAnyPhoneme(result.getQuestion().getPhoneticSymbol(), group.phonemes()))
+							.toList();
+					long mistakes = groupResults.stream()
+							.filter(result -> result.getScore() < CORRECT_SCORE_THRESHOLD)
+							.count();
+					return new GroupStats(group, groupResults, mistakes, averageScore(groupResults));
+				})
+				.filter(stats -> !stats.results().isEmpty())
+				.sorted(Comparator.comparingLong(GroupStats::mistakeCount).reversed()
+						.thenComparing(stats -> stats.averageScore() == null ? Double.MAX_VALUE : stats.averageScore()))
+				.limit(5)
+				.map(stats -> new DashboardPronunciationComparisonGroupResponse(
+						stats.group().label(),
+						stats.group().phonemes(),
+						stats.mistakeCount(),
+						stats.results().size(),
+						stats.averageScore()
+				))
+				.toList();
+	}
+
+	private DashboardOverallFeedbackResponse buildOverallFeedback(
+			Double averageScore,
+			DashboardWeeklyComparisonResponse weeklyComparison,
+			List<WeakPhonemeResponse> weakPhonemes,
+			List<DashboardWrongWordResponse> topWrongWords) {
+		String title = resolveFeedbackTitle(averageScore, weeklyComparison);
+		StringBuilder message = new StringBuilder();
+
+		if (weeklyComparison.scoreDelta() != null) {
+			if (weeklyComparison.scoreDelta() > 0) {
+				message.append("이번 주 평균 점수가 지난주보다 ")
+						.append(weeklyComparison.scoreDelta())
+						.append("점 올랐어요. ");
+			} else if (weeklyComparison.scoreDelta() < 0) {
+				message.append("이번 주 평균 점수가 지난주보다 ")
+						.append(Math.abs(weeklyComparison.scoreDelta()))
+						.append("점 낮아졌어요. ");
+			} else {
+				message.append("이번 주 평균 점수는 지난주와 거의 비슷해요. ");
+			}
+		} else if (averageScore != null) {
+			message.append("현재 평균 점수는 ")
+					.append(averageScore)
+					.append("점이에요. ");
+		} else {
+			message.append("아직 충분한 학습 기록이 없어요. ");
+		}
+
+		if (!weakPhonemes.isEmpty()) {
+			WeakPhonemeResponse weakest = weakPhonemes.get(0);
+			message.append("특히 ")
+					.append(weakest.phoneme())
+					.append(" 발음에서 약점이 보여요. ");
+		}
+
+		if (!topWrongWords.isEmpty()) {
+			DashboardWrongWordResponse wrongWord = topWrongWords.get(0);
+			message.append(wrongWord.word())
+					.append(" 단어를 우선 다시 연습해보면 좋아요.");
+		} else {
+			message.append("지금 흐름을 유지하면서 다음 문제로 넘어가도 좋아요.");
+		}
+
+		return new DashboardOverallFeedbackResponse(title, message.toString());
 	}
 
 	private List<WeakPhonemeResponse> buildWeakPhonemes(List<SessionResult> results) {
@@ -336,11 +462,70 @@ public class DashboardService {
 		return averageScore(todayResults);
 	}
 
+	private boolean isBetween(SessionResult result, LocalDate startInclusive, LocalDate endInclusive) {
+		LocalDate date = LocalDate.ofInstant(result.getCreatedAt(), APP_ZONE);
+		return !date.isBefore(startInclusive) && !date.isAfter(endInclusive);
+	}
+
 	private Double averageScore(List<SessionResult> results) {
 		if (results == null || results.isEmpty()) {
 			return null;
 		}
 		return round(results.stream().mapToDouble(SessionResult::getScore).average().orElse(0));
+	}
+
+	private static boolean matchesAnyPhoneme(String phoneticSymbol, List<String> candidates) {
+		if (phoneticSymbol == null || phoneticSymbol.isBlank()) {
+			return false;
+		}
+		String normalizedSymbol = normalizePhoneme(phoneticSymbol);
+		return candidates.stream()
+				.map(DashboardService::normalizePhoneme)
+				.anyMatch(normalizedSymbol::contains);
+	}
+
+	private static String normalizePhoneme(String phoneme) {
+		return phoneme == null ? "" : phoneme
+				.replace("/", "")
+				.replace("[", "")
+				.replace("]", "")
+				.trim()
+				.toLowerCase();
+	}
+
+	private static String resolveTrend(Double scoreDelta, long activityDelta) {
+		if (scoreDelta != null) {
+			if (scoreDelta > 0.5) {
+				return "up";
+			}
+			if (scoreDelta < -0.5) {
+				return "down";
+			}
+			return "flat";
+		}
+		if (activityDelta > 0) {
+			return "more_active";
+		}
+		if (activityDelta < 0) {
+			return "less_active";
+		}
+		return "new";
+	}
+
+	private static String resolveFeedbackTitle(Double averageScore, DashboardWeeklyComparisonResponse weeklyComparison) {
+		if (weeklyComparison.scoreDelta() != null && weeklyComparison.scoreDelta() > 0.5) {
+			return "성장 중인 발음 연습가";
+		}
+		if (averageScore == null) {
+			return "오늘부터 시작하는 발음 연습";
+		}
+		if (averageScore >= 85) {
+			return "안정적인 발음 실력";
+		}
+		if (averageScore >= 70) {
+			return "꾸준한 발음 연습가";
+		}
+		return "기초를 다지는 발음 연습가";
 	}
 
 	private static double round(double value) {
