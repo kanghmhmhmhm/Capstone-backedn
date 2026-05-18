@@ -17,6 +17,7 @@ public record FastApiDispatchResponse(
 		String recognizedText,
 		String selectedChoice,
 		String feedbackText,
+		String analysisText,
 		String overallBand,
 		String mildFeedback,
 		String spicyFeedback,

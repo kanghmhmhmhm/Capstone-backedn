@@ -55,7 +55,6 @@ public class FastApiUploadService {
 	private final S3Config s3Config;
 	private final String baseUrl;
 	private final String analyzePath;
-	private final String feedbackPath;
 	private final LearningSessionRepository learningSessionRepository;
 	private final QuizQuestionRepository quizQuestionRepository;
 	private final SessionResultRepository sessionResultRepository;
@@ -67,7 +66,6 @@ public class FastApiUploadService {
 	public FastApiUploadService(
 			@Value("${app.fastapi.base-url:http://localhost:8000}") String baseUrl,
 			@Value("${app.fastapi.analyze-path:/analyze}") String analyzePath,
-			@Value("${app.fastapi.feedback-path:/feedback}") String feedbackPath,
 			AmazonS3 amazonS3,
 			S3Config s3Config,
 			LearningSessionRepository learningSessionRepository,
@@ -80,7 +78,6 @@ public class FastApiUploadService {
 		this.amazonS3 = amazonS3;
 		this.s3Config = s3Config;
 		this.analyzePath = analyzePath;
-		this.feedbackPath = feedbackPath;
 		this.learningSessionRepository = learningSessionRepository;
 		this.quizQuestionRepository = quizQuestionRepository;
 		this.sessionResultRepository = sessionResultRepository;
@@ -126,15 +123,13 @@ public class FastApiUploadService {
 		logIncomingResponse("sendUpload", HttpStatusCode.valueOf(responseEntity.statusCode()), responseEntity.body());
 
 		JsonNode responseBody = parseResponseBody(responseEntity.body());
-		JsonNode feedbackBody = requestFeedback(word, responseBody);
 		SavedAnalysisResult savedResult = saveAnalysisResult(
 				uploadFile,
 				sessionId,
 				questionId,
 				word,
 				selectedChoice,
-				responseBody,
-				feedbackBody
+				responseBody
 		);
 
 		return new FastApiDispatchResponse(
@@ -152,6 +147,7 @@ public class FastApiUploadService {
 				savedResult.transcript(),
 				savedResult.selectedChoice(),
 				savedResult.feedbackText(),
+				savedResult.analysisText(),
 				savedResult.overallBand(),
 				savedResult.mildFeedback(),
 				savedResult.spicyFeedback(),
@@ -198,27 +194,13 @@ public class FastApiUploadService {
 		return parseResponseBody(responseBody);
 	}
 
-	private JsonNode requestFeedback(String word, JsonNode analyzeBody) {
-		double score = readRequiredScore0To10(analyzeBody, path("score_0_10"));
-		JsonNode llmContext = readNode(analyzeBody, path("llm_context"));
-		if (llmContext == null || llmContext.isMissingNode() || llmContext.isNull()) {
-			throw new IllegalStateException("FastAPI /analyze 응답에 llm_context가 없습니다.");
-		}
-
-		FastApiFeedbackRequest request = new FastApiFeedbackRequest(word, score, llmContext);
-		HttpExchangeResult responseEntity = executeFeedbackRequest(request);
-		logIncomingResponse("feedback", HttpStatusCode.valueOf(responseEntity.statusCode()), responseEntity.body());
-		return parseResponseBody(responseEntity.body());
-	}
-
 	private SavedAnalysisResult saveAnalysisResult(
 			UploadFile uploadFile,
 			Long sessionId,
 			Long questionId,
 			String word,
 			String selectedChoice,
-			JsonNode analyzeBody,
-			JsonNode feedbackBody) {
+			JsonNode analyzeBody) {
 		if (analyzeBody == null || analyzeBody.isNull()) {
 			throw new IllegalStateException("FastAPI 응답 본문이 비어 있습니다.");
 		}
@@ -229,9 +211,9 @@ public class FastApiUploadService {
 		QuizQuestion question = quizQuestionRepository.findById(questionId)
 				.orElseThrow(() -> new IllegalArgumentException("문제를 찾을 수 없습니다."));
 
-		double finalScore = readRequiredScore0To10(analysisPayload, path("score_0_10"));
-		double voiceScore = readRequiredScore0To10(analysisPayload, path("audio_score_0_10"));
-		double visionScore = readRequiredScore0To10(analysisPayload, path("visual_score_0_10"));
+		double finalScore = readRequiredScore0To10(analysisPayload, path("scores", "overall_0_10"));
+		double voiceScore = readRequiredScore0To10(analysisPayload, path("scores", "audio_0_10"));
+		double visionScore = readRequiredScore0To10(analysisPayload, path("scores", "visual_0_10"));
 
 		String transcript = readText(analyzeBody,
 				path("transcript"),
@@ -241,13 +223,10 @@ public class FastApiUploadService {
 		if (transcript == null || transcript.isBlank()) {
 			transcript = word;
 		}
-		String mildFeedback = readText(feedbackBody, path("mild"));
-		String spicyFeedback = readText(feedbackBody, path("spicy"));
-		String feedbackText = firstNonBlank(mildFeedback, spicyFeedback, deriveFeedbackText(analysisPayload, analyzeBody));
-		String overallBand = readText(analysisPayload, path("band"));
-		JsonNode llmContext = firstPresentNode(analysisPayload, path("llm_context"));
-		JsonNode llmFeedbackByMode = buildLlmFeedbackByMode(mildFeedback, spicyFeedback);
-		JsonNode providerPayload = buildProviderPayload(analyzeBody, feedbackBody);
+		String analysisText = readText(analysisPayload, path("analysis_text"));
+		String feedbackText = firstNonBlank(analysisText, deriveFeedbackText(analysisPayload, analyzeBody));
+		String overallBand = readText(analysisPayload, path("scores", "band"));
+		JsonNode providerPayload = buildProviderPayload(analyzeBody);
 
 		SessionResult result = sessionResultRepository.save(new SessionResult(session, question, scaleScore0To100(finalScore)));
 		pronunciationScoreRepository.save(new PronunciationScore(
@@ -265,15 +244,8 @@ public class FastApiUploadService {
 				Instant.now()
 		));
 
-		if (mildFeedback != null && !mildFeedback.isBlank()) {
-			feedbackLogRepository.save(new FeedbackLog(result, "mild", mildFeedback));
-		}
-		if (spicyFeedback != null && !spicyFeedback.isBlank()) {
-			feedbackLogRepository.save(new FeedbackLog(result, "spicy", spicyFeedback));
-		}
-		if ((mildFeedback == null || mildFeedback.isBlank()) && (spicyFeedback == null || spicyFeedback.isBlank())
-				&& feedbackText != null && !feedbackText.isBlank()) {
-			feedbackLogRepository.save(new FeedbackLog(result, "FASTAPI", feedbackText));
+		if (feedbackText != null && !feedbackText.isBlank()) {
+			feedbackLogRepository.save(new FeedbackLog(result, "analysis", feedbackText));
 		}
 
 		return new SavedAnalysisResult(
@@ -286,19 +258,21 @@ public class FastApiUploadService {
 				transcript,
 				selectedChoice,
 				feedbackText,
+				analysisText,
 				overallBand,
-				mildFeedback,
-				spicyFeedback,
 				null,
 				null,
-				llmFeedbackByMode,
-				llmContext,
+				null,
+				null,
+				null,
+				null,
 				providerPayload
 		);
 	}
 
 	private String deriveFeedbackText(JsonNode analysisPayload, JsonNode responseBody) {
 		String directFeedback = readText(responseBody,
+				path("analysis_text"),
 				path("feedback"),
 				path("feedback_text"),
 				path("summary_text"),
@@ -307,6 +281,7 @@ public class FastApiUploadService {
 			return directFeedback;
 		}
 		directFeedback = readText(analysisPayload,
+				path("analysis_text"),
 				path("feedback"),
 				path("feedback_text"),
 				path("summary_text"));
@@ -314,7 +289,7 @@ public class FastApiUploadService {
 			return directFeedback;
 		}
 
-		String overallBand = readText(analysisPayload, path("band"), path("overall_scores", "overall_band"));
+		String overallBand = readText(analysisPayload, path("scores", "band"), path("band"), path("overall_scores", "overall_band"));
 		String praisePoint = readText(analysisPayload, path("llm_context", "praise_point"));
 		String audioIssuePhoneme = readText(analysisPayload, path("llm_context", "audio_issue", "phoneme"));
 		String heardAs = readText(analysisPayload, path("llm_context", "audio_issue", "heard_as"));
@@ -348,6 +323,12 @@ public class FastApiUploadService {
 		Map<String, Object> payload = new LinkedHashMap<>();
 		payload.put("analyze", analyzeBody);
 		payload.put("feedback", feedbackBody);
+		return parseResponseBody(toJson(payload));
+	}
+
+	private JsonNode buildProviderPayload(JsonNode analyzeBody) {
+		Map<String, Object> payload = new LinkedHashMap<>();
+		payload.put("analyze", analyzeBody);
 		return parseResponseBody(toJson(payload));
 	}
 
@@ -709,53 +690,6 @@ public class FastApiUploadService {
 		}
 	}
 
-	private HttpExchangeResult executeFeedbackRequest(FastApiFeedbackRequest request) {
-		URI feedbackUri = buildFeedbackUri();
-		HttpURLConnection connection = null;
-		try {
-			log.info("FastAPI feedback target: uri={}, streaming=true", feedbackUri);
-			connection = (HttpURLConnection) feedbackUri.toURL().openConnection();
-			connection.setRequestMethod("POST");
-			connection.setDoOutput(true);
-			connection.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
-			connection.setRequestProperty("Accept", MediaType.APPLICATION_JSON_VALUE);
-			connection.setChunkedStreamingMode(16 * 1024);
-
-			try (var outputStream = connection.getOutputStream()) {
-				objectMapper.writeValue(outputStream, request);
-			}
-
-			int statusCode = connection.getResponseCode();
-			String responseBody = readResponseBody(connection, statusCode);
-
-			if (statusCode >= 400) {
-				throw new HttpClientErrorException(
-						HttpStatusCode.valueOf(statusCode),
-						connection.getResponseMessage(),
-						null,
-						responseBody == null ? new byte[0] : responseBody.getBytes(StandardCharsets.UTF_8),
-						StandardCharsets.UTF_8
-				);
-			}
-
-			return new HttpExchangeResult(statusCode, responseBody);
-		} catch (RestClientResponseException e) {
-			log.warn(
-					"FastAPI feedback request failed: uri={}, status={}, body={}",
-					feedbackUri,
-					e.getStatusCode(),
-					e.getResponseBodyAsString()
-			);
-			throw e;
-		} catch (Exception e) {
-			throw new IllegalStateException("AI 서버 피드백 요청에 실패했습니다.", e);
-		} finally {
-			if (connection != null) {
-				connection.disconnect();
-			}
-		}
-	}
-
 	private String readResponseBody(HttpURLConnection connection, int statusCode) throws Exception {
 		var inputStream = statusCode >= 400 ? connection.getErrorStream() : connection.getInputStream();
 		if (inputStream == null) {
@@ -769,12 +703,6 @@ public class FastApiUploadService {
 	private URI buildAnalyzeUri() {
 		String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
 		String normalizedPath = analyzePath.startsWith("/") ? analyzePath : "/" + analyzePath;
-		return URI.create(normalizedBaseUrl + normalizedPath);
-	}
-
-	private URI buildFeedbackUri() {
-		String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-		String normalizedPath = feedbackPath.startsWith("/") ? feedbackPath : "/" + feedbackPath;
 		return URI.create(normalizedBaseUrl + normalizedPath);
 	}
 
@@ -805,6 +733,7 @@ public class FastApiUploadService {
 			String transcript,
 			String selectedChoice,
 			String feedbackText,
+			String analysisText,
 			String overallBand,
 			String mildFeedback,
 			String spicyFeedback,
@@ -813,13 +742,6 @@ public class FastApiUploadService {
 			JsonNode llmFeedbackByMode,
 			JsonNode llmContext,
 			JsonNode feedbackPayload
-	) {
-	}
-
-	private record FastApiFeedbackRequest(
-			String word,
-			Double score_0_10,
-			JsonNode llm_context
 	) {
 	}
 
