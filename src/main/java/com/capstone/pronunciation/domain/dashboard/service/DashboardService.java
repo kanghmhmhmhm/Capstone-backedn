@@ -98,7 +98,7 @@ public class DashboardService {
 		List<DashboardStageSummaryResponse> stageProgress = stages.stream()
 				.map(stage -> toStageSummary(user.getId(), stage))
 				.toList();
-		long learningStreak = calculateLearningStreak(sessions);
+		long learningStreak = calculateLearningStreak(results);
 		double achievementRate = calculateAchievementRate(stageProgress);
 
 		return new DashboardSummaryResponse(
@@ -394,9 +394,9 @@ public class DashboardService {
 		);
 	}
 
-	private long calculateLearningStreak(List<LearningSession> sessions) {
-		Set<LocalDate> studiedDates = sessions.stream()
-				.map(LearningSession::getStartTime)
+	private long calculateLearningStreak(List<SessionResult> results) {
+		Set<LocalDate> studiedDates = results.stream()
+				.map(SessionResult::getCreatedAt)
 				.filter(instant -> instant != null)
 				.map(instant -> LocalDate.ofInstant(instant, APP_ZONE))
 				.collect(Collectors.toCollection(HashSet::new));
