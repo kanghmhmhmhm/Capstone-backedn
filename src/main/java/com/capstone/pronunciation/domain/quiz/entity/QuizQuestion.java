@@ -32,6 +32,9 @@ public class QuizQuestion {
 	@Column(name = "phonetic_symbol", length = 50)
 	private String phoneticSymbol;
 
+	@Column(name = "word_audio_url", length = 1000)
+	private String wordAudioUrl;
+
 	@Lob
 	@Column(name = "animation_data", columnDefinition = "LONGTEXT")
 	private String animationData;
@@ -126,6 +129,14 @@ public class QuizQuestion {
 
 	public void setPhoneticSymbol(String phoneticSymbol) {
 		this.phoneticSymbol = phoneticSymbol;
+	}
+
+	public String getWordAudioUrl() {
+		return wordAudioUrl;
+	}
+
+	public void setWordAudioUrl(String wordAudioUrl) {
+		this.wordAudioUrl = wordAudioUrl;
 	}
 
 	public String getAnimationData() {

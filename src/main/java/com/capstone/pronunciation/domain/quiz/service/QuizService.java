@@ -272,6 +272,7 @@ public class QuizService {
 				answer,
 				question.getChoiceOptions(),
 				question.getAnimationData(),
+				question.getWordAudioUrl(),
 				solved
 		);
 	}

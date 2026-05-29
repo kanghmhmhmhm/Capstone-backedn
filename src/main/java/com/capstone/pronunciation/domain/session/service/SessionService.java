@@ -245,6 +245,7 @@ public class SessionService {
 				answer,
 				question.getChoiceOptions(),
 				question.getAnimationData(),
+				question.getWordAudioUrl(),
 				solved
 		);
 	}

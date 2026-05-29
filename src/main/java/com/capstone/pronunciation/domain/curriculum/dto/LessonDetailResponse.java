@@ -12,6 +12,7 @@ public record LessonDetailResponse(
 		String answer,
 		List<String> choices,
 		String animationData,
+		String wordAudioUrl,
 		boolean completed
 ) {
 }

@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -31,6 +32,9 @@ public class CurriculumSeed {
 			"three", "thank", "mother", "she", "sheep", "shoes", "zoo", "water", "window", "apple",
 			"cat", "bed", "milk", "sing", "choice", "girl", "world", "map", "spring"
 	);
+
+	@Value("${app.word-audio.base-url}")
+	private String wordAudioBaseUrl;
 
 	@Bean
 	ApplicationRunner seedCurriculum(
@@ -116,6 +120,7 @@ public class CurriculumSeed {
 		question.setDifficulty(seed.difficulty());
 		question.setChoiceOptions(choicesFor(seed.answer()));
 		question.setAnimationData(seed.animationData());
+		question.setWordAudioUrl(wordAudioUrlFor(seed.answer()));
 		questionRepository.save(question);
 	}
 
@@ -180,6 +185,17 @@ public class CurriculumSeed {
 		int rotation = Math.floorMod(answer.hashCode(), ordered.size());
 		java.util.Collections.rotate(ordered, rotation);
 		return ordered;
+	}
+
+	private String wordAudioUrlFor(String answer) {
+		if (answer == null || answer.isBlank()) {
+			return null;
+		}
+		String baseUrl = wordAudioBaseUrl == null ? "" : wordAudioBaseUrl.strip();
+		if (baseUrl.endsWith("/")) {
+			baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+		}
+		return "%s/%s.mp3".formatted(baseUrl, answer.trim().toLowerCase());
 	}
 
 	private List<QuestionSeed> questionSeeds(List<CurriculumStage> stages) {

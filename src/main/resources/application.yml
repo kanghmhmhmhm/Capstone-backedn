@@ -28,6 +28,8 @@ app:
     base-url: ${FASTAPI_BASE_URL:http://3.36.71.212:8000/}
     analyze-path: ${FASTAPI_ANALYZE_PATH:/analyze}
     feedback-wav-path: ${FASTAPI_FEEDBACK_WAV_PATH:/feedback-wav}
+  word-audio:
+    base-url: ${WORD_AUDIO_BASE_URL:https://aws-s3-capstone-kang.s3.ap-northeast-2.amazonaws.com/audio/words}
 
 
 cloud:

@@ -121,6 +121,7 @@ public class CurriculumService {
 					q.getSentence(),
 					q.getPhoneticSymbol(),
 					q.getAnimationData(),
+					q.getWordAudioUrl(),
 					completed
 			));
 		}
@@ -149,6 +150,7 @@ public class CurriculumService {
 				q.getAnswer(),
 				q.getChoiceOptions(),
 				q.getAnimationData(),
+				q.getWordAudioUrl(),
 				completed
 		);
 	}

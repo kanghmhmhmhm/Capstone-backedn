@@ -10,6 +10,7 @@ public record QuestionDto(
 		String answer,
 		List<String> choices,
 		String animationData,
+		String wordAudioUrl,
 		Boolean solved
 ) {
 }
