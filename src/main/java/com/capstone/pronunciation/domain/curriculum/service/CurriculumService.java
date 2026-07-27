@@ -122,6 +122,7 @@ public class CurriculumService {
 					q.getPhoneticSymbol(),
 					q.getAnimationData(),
 					q.getWordAudioUrl(),
+					q.getIotActionCode(),
 					completed
 			));
 		}
@@ -151,6 +152,7 @@ public class CurriculumService {
 				q.getChoiceOptions(),
 				q.getAnimationData(),
 				q.getWordAudioUrl(),
+				q.getIotActionCode(),
 				completed
 		);
 	}

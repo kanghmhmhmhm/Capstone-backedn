@@ -13,6 +13,7 @@ public record LessonDetailResponse(
 		List<String> choices,
 		String animationData,
 		String wordAudioUrl,
+		String iotActionCode,
 		boolean completed
 ) {
 }

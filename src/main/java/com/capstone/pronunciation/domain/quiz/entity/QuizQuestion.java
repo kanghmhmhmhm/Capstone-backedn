@@ -35,6 +35,9 @@ public class QuizQuestion {
 	@Column(name = "word_audio_url", length = 1000)
 	private String wordAudioUrl;
 
+	@Column(name = "iot_action_code", length = 50)
+	private String iotActionCode;
+
 	@Lob
 	@Column(name = "animation_data", columnDefinition = "LONGTEXT")
 	private String animationData;
@@ -137,6 +140,14 @@ public class QuizQuestion {
 
 	public void setWordAudioUrl(String wordAudioUrl) {
 		this.wordAudioUrl = wordAudioUrl;
+	}
+
+	public String getIotActionCode() {
+		return iotActionCode;
+	}
+
+	public void setIotActionCode(String iotActionCode) {
+		this.iotActionCode = iotActionCode;
 	}
 
 	public String getAnimationData() {

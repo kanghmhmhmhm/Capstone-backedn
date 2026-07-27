@@ -246,6 +246,7 @@ public class SessionService {
 				question.getChoiceOptions(),
 				question.getAnimationData(),
 				question.getWordAudioUrl(),
+				question.getIotActionCode(),
 				solved
 		);
 	}

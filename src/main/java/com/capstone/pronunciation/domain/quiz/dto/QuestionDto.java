@@ -11,6 +11,7 @@ public record QuestionDto(
 		List<String> choices,
 		String animationData,
 		String wordAudioUrl,
+		String iotActionCode,
 		Boolean solved
 ) {
 }

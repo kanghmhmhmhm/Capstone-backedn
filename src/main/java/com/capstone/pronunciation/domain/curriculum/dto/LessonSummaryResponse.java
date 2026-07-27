@@ -9,6 +9,7 @@ public record LessonSummaryResponse(
 		String phoneticSymbol,
 		String animationData,
 		String wordAudioUrl,
+		String iotActionCode,
 		boolean completed
 ) {
 }

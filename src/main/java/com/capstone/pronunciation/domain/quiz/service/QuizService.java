@@ -273,6 +273,7 @@ public class QuizService {
 				question.getChoiceOptions(),
 				question.getAnimationData(),
 				question.getWordAudioUrl(),
+				question.getIotActionCode(),
 				solved
 		);
 	}

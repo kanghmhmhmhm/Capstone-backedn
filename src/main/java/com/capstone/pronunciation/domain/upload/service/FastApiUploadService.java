@@ -25,6 +25,8 @@ import org.slf4j.LoggerFactory;
 import com.amazonaws.services.s3.AmazonS3;
 import com.capstone.pronunciation.domain.feedback.entity.FeedbackLog;
 import com.capstone.pronunciation.domain.feedback.repository.FeedbackLogRepository;
+import com.capstone.pronunciation.domain.iot.dto.IotCommandResponse;
+import com.capstone.pronunciation.domain.iot.service.IotCommandService;
 import com.capstone.pronunciation.domain.quiz.entity.QuizQuestion;
 import com.capstone.pronunciation.domain.quiz.repository.QuizQuestionRepository;
 import com.capstone.pronunciation.domain.session.entity.AnswerSubmission;
@@ -61,6 +63,7 @@ public class FastApiUploadService {
 	private final PronunciationScoreRepository pronunciationScoreRepository;
 	private final AnswerSubmissionRepository answerSubmissionRepository;
 	private final FeedbackLogRepository feedbackLogRepository;
+	private final IotCommandService iotCommandService;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	public FastApiUploadService(
@@ -73,7 +76,8 @@ public class FastApiUploadService {
 			SessionResultRepository sessionResultRepository,
 			PronunciationScoreRepository pronunciationScoreRepository,
 			AnswerSubmissionRepository answerSubmissionRepository,
-			FeedbackLogRepository feedbackLogRepository) {
+			FeedbackLogRepository feedbackLogRepository,
+			IotCommandService iotCommandService) {
 		this.baseUrl = baseUrl;
 		this.amazonS3 = amazonS3;
 		this.s3Config = s3Config;
@@ -84,6 +88,7 @@ public class FastApiUploadService {
 		this.pronunciationScoreRepository = pronunciationScoreRepository;
 		this.answerSubmissionRepository = answerSubmissionRepository;
 		this.feedbackLogRepository = feedbackLogRepository;
+		this.iotCommandService = iotCommandService;
 	}
 
 	@Transactional
@@ -155,7 +160,11 @@ public class FastApiUploadService {
 				savedResult.mouthComparisonAssets(),
 				savedResult.llmFeedbackByMode(),
 				savedResult.llmContext(),
-				savedResult.feedbackPayload()
+				savedResult.feedbackPayload(),
+				savedResult.iotTriggered(),
+				savedResult.iotActionCode(),
+				savedResult.iotStatus(),
+				savedResult.iotMessage()
 		);
 	}
 
@@ -248,6 +257,12 @@ public class FastApiUploadService {
 			feedbackLogRepository.save(new FeedbackLog(result, "analysis", feedbackText));
 		}
 
+		IotCommandResponse iotCommand = iotCommandService.dispatchAfterAnalysis(
+				question,
+				selectedChoice,
+				finalScore
+		);
+
 		return new SavedAnalysisResult(
 				result.getId(),
 				question.getId(),
@@ -266,7 +281,11 @@ public class FastApiUploadService {
 				null,
 				null,
 				null,
-				providerPayload
+				providerPayload,
+				iotCommand.triggered(),
+				iotCommand.actionCode(),
+				iotCommand.status(),
+				iotCommand.message()
 		);
 	}
 
@@ -741,7 +760,11 @@ public class FastApiUploadService {
 			JsonNode mouthComparisonAssets,
 			JsonNode llmFeedbackByMode,
 			JsonNode llmContext,
-			JsonNode feedbackPayload
+			JsonNode feedbackPayload,
+			Boolean iotTriggered,
+			String iotActionCode,
+			String iotStatus,
+			String iotMessage
 	) {
 	}
 

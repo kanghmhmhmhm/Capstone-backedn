@@ -121,7 +121,24 @@ public class CurriculumSeed {
 		question.setChoiceOptions(choicesFor(seed.answer()));
 		question.setAnimationData(seed.animationData());
 		question.setWordAudioUrl(wordAudioUrlFor(seed.answer()));
+		String iotActionCode = iotActionCodeFor(seed.sentence());
+		if (iotActionCode != null) {
+			question.setIotActionCode(iotActionCode);
+		}
 		questionRepository.save(question);
+	}
+
+	private String iotActionCodeFor(String sentence) {
+		if ("Please turn off the ______.".equals(sentence)) {
+			return "LIGHT_OFF";
+		}
+		if ("The room is too dark without the ______.".equals(sentence)) {
+			return "LIGHT_ON";
+		}
+		if ("Turn on the ______, please.".equals(sentence)) {
+			return "FAN_ON";
+		}
+		return null;
 	}
 
 	private void deleteLegacySentenceQuestions(

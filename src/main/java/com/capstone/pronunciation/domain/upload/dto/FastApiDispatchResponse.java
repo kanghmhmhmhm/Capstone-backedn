@@ -25,6 +25,10 @@ public record FastApiDispatchResponse(
 		JsonNode mouthComparisonAssets,
 		JsonNode llmFeedbackByMode,
 		JsonNode llmContext,
-		JsonNode feedbackPayload
+		JsonNode feedbackPayload,
+		Boolean iotTriggered,
+		String iotActionCode,
+		String iotStatus,
+		String iotMessage
 ) {
 }
