@@ -218,7 +218,7 @@ public class CurriculumSeed {
 		for (int wordIndex = 0; wordIndex < words.size(); wordIndex++) {
 			WordSeed word = words.get(wordIndex);
 			for (int sentenceIndex = 0; sentenceIndex < word.sentences().size(); sentenceIndex++) {
-				CurriculumStage stage = stages.get((wordIndex + sentenceIndex * 3) % stages.size());
+				CurriculumStage stage = stageForQuestion(stages, word, wordIndex, sentenceIndex);
 				seeds.add(new QuestionSeed(
 						stage,
 						word.sentences().get(sentenceIndex),
@@ -230,6 +230,28 @@ public class CurriculumSeed {
 			}
 		}
 		return seeds;
+	}
+
+	private CurriculumStage stageForQuestion(
+			List<CurriculumStage> stages,
+			WordSeed word,
+			int wordIndex,
+			int sentenceIndex) {
+		String sentence = word.sentences().get(sentenceIndex);
+		if ("light".equals(word.answer())
+				&& ("Please turn off the ______.".equals(sentence)
+				|| "The room is too dark without the ______.".equals(sentence))) {
+			return stages.get(0);
+		}
+
+		// Swap two existing Lv1 questions into the source stages to keep 10 questions per level.
+		if ("rice".equals(word.answer()) && "I eat ______ every day.".equals(sentence)) {
+			return stages.get(1);
+		}
+		if ("shoes".equals(word.answer()) && "I bought new ______.".equals(sentence)) {
+			return stages.get(4);
+		}
+		return stages.get((wordIndex + sentenceIndex * 3) % stages.size());
 	}
 
 	private String animationDataFor(List<String> phonemes) {
