@@ -121,10 +121,7 @@ public class CurriculumSeed {
 		question.setChoiceOptions(choicesFor(seed.answer()));
 		question.setAnimationData(seed.animationData());
 		question.setWordAudioUrl(wordAudioUrlFor(seed.answer()));
-		String iotActionCode = iotActionCodeFor(seed.sentence());
-		if (iotActionCode != null) {
-			question.setIotActionCode(iotActionCode);
-		}
+		question.setIotActionCode(iotActionCodeFor(seed.sentence()));
 		questionRepository.save(question);
 	}
 
