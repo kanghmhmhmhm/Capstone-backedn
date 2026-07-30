@@ -27,7 +27,7 @@ public class IotCommandService {
 	public IotCommandResponse dispatchAfterAnalysis(
 			QuizQuestion question,
 			String selectedChoice,
-			double overallScore) {
+			double attemptAudioScore) {
 		String actionCode = question.getIotActionCode();
 		if (actionCode == null || actionCode.isBlank()) {
 			return IotCommandResponse.skipped(null, "NOT_CONFIGURED", "해당 문제에는 IoT 명령이 설정되지 않았습니다.");
@@ -37,11 +37,11 @@ public class IotCommandService {
 				|| !question.getAnswer().trim().equalsIgnoreCase(selectedChoice.trim())) {
 			return IotCommandResponse.skipped(actionCode, "INCORRECT_CHOICE", "정답을 선택하지 않아 IoT 명령을 실행하지 않았습니다.");
 		}
-		if (overallScore < minimumScore) {
+		if (attemptAudioScore < minimumScore) {
 			return IotCommandResponse.skipped(
 					actionCode,
 					"SCORE_TOO_LOW",
-					"종합 점수가 기준 점수 %.1f점보다 낮습니다.".formatted(minimumScore)
+					"해당 시도의 음성 점수가 기준 점수 %.1f점보다 낮습니다.".formatted(minimumScore)
 			);
 		}
 

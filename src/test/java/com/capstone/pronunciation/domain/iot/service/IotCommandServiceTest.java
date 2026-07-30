@@ -25,7 +25,7 @@ class IotCommandServiceTest {
 	}
 
 	@Test
-	void dispatchesConfiguredActionWhenChoiceAndScorePass() {
+	void dispatchesConfiguredActionWhenChoiceAndAttemptAudioScorePass() {
 		QuizQuestion question = question("light", "LIGHT_ON");
 		IotCommandResponse sent = IotCommandResponse.sent("LIGHT_ON", "sent");
 		when(mqttPublisher.publish(IotActionCode.LIGHT_ON)).thenReturn(sent);
@@ -59,12 +59,13 @@ class IotCommandServiceTest {
 	}
 
 	@Test
-	void skipsWhenScoreIsBelowMinimum() {
+	void skipsWhenAttemptAudioScoreIsBelowMinimum() {
 		QuizQuestion question = question("light", "LIGHT_ON");
 
 		IotCommandResponse response = iotCommandService.dispatchAfterAnalysis(question, "light", 6.9);
 
 		assertThat(response.status()).isEqualTo("SCORE_TOO_LOW");
+		assertThat(response.message()).contains("해당 시도의 음성 점수");
 		assertThat(response.triggered()).isFalse();
 		verifyNoInteractions(mqttPublisher);
 	}

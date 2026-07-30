@@ -260,7 +260,7 @@ public class FastApiUploadService {
 		IotCommandResponse iotCommand = iotCommandService.dispatchAfterAnalysis(
 				question,
 				selectedChoice,
-				finalScore
+				voiceScore
 		);
 
 		return new SavedAnalysisResult(
