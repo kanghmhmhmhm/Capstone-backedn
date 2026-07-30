@@ -135,9 +135,6 @@ public class CurriculumSeed {
 		if ("The room is too dark without the ______.".equals(sentence)) {
 			return "LIGHT_ON";
 		}
-		if ("Turn on the ______, please.".equals(sentence)) {
-			return "FAN_ON";
-		}
 		return null;
 	}
 

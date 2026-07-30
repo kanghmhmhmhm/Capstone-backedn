@@ -7,8 +7,7 @@ public record IotCommandRequest(
 				description = "ESP32로 전달할 허용된 IoT 명령",
 				example = "LIGHT_ON",
 				allowableValues = {
-						"LIGHT_ON", "LIGHT_OFF", "LIGHT_RED", "LIGHT_GREEN", "LIGHT_BLUE",
-						"FAN_ON", "FAN_OFF", "CURTAIN_OPEN", "CURTAIN_CLOSE"
+						"LIGHT_ON", "LIGHT_OFF", "LIGHT_RED", "LIGHT_GREEN", "LIGHT_BLUE"
 				}
 		)
 		String actionCode

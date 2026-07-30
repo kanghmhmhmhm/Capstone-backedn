@@ -378,15 +378,6 @@
           <button class="iot-command blue" data-iot-action="LIGHT_BLUE">파란색</button>
         </div>
 
-        <label for="iot_action">다른 IoT 명령</label>
-        <select id="iot_action">
-          <option value="FAN_ON">FAN_ON - 선풍기 켜기</option>
-          <option value="FAN_OFF">FAN_OFF - 선풍기 끄기</option>
-          <option value="CURTAIN_OPEN">CURTAIN_OPEN - 커튼 열기</option>
-          <option value="CURTAIN_CLOSE">CURTAIN_CLOSE - 커튼 닫기</option>
-        </select>
-        <button class="secondary" id="btnIotCustom">선택 명령 전송</button>
-
         <div class="iot-panel">
           <strong>시연 확인 기준</strong>
           <div class="hint">
@@ -925,10 +916,6 @@
 
     document.querySelectorAll('[data-iot-action]').forEach(button => {
       button.addEventListener('click', () => sendIotCommand(button.dataset.iotAction));
-    });
-
-    document.getElementById('btnIotCustom').addEventListener('click', () => {
-      sendIotCommand(document.getElementById('iot_action').value);
     });
 
     document.getElementById('btnSessionList').addEventListener('click', async () => {

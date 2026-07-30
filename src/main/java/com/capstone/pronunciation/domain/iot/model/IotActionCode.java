@@ -7,11 +7,7 @@ public enum IotActionCode {
 	LIGHT_OFF,
 	LIGHT_RED,
 	LIGHT_GREEN,
-	LIGHT_BLUE,
-	FAN_ON,
-	FAN_OFF,
-	CURTAIN_OPEN,
-	CURTAIN_CLOSE;
+	LIGHT_BLUE;
 
 	public static IotActionCode from(String value) {
 		if (value == null || value.isBlank()) {
