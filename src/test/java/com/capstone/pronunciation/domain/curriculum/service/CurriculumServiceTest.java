@@ -26,7 +26,7 @@ import com.capstone.pronunciation.domain.session.repository.SessionResultReposit
 import com.capstone.pronunciation.domain.user.entity.User;
 import com.capstone.pronunciation.domain.user.repository.UserRepository;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.curriculum.level-lock-enabled=true")
 @Transactional
 class CurriculumServiceTest {
 
@@ -95,6 +95,20 @@ class CurriculumServiceTest {
 		assertStageUnlocked(afterCompletion, "Sentence Lv1", true);
 		assertStageUnlocked(afterCompletion, "Sentence Lv2", true);
 		assertStageUnlocked(afterCompletion, "Sentence Lv3", false);
+	}
+
+	@Test
+	void levelOneContainsTenBasicLightCommandQuestions() {
+		List<QuizQuestion> questions = quizQuestionRepository.findByStage_IdOrderByIdAsc(sentenceLv1Stage.getId());
+
+		assertEquals(10, questions.size());
+		assertEquals(2, questions.stream().filter(question -> "light on".equals(question.getAnswer())).count());
+		assertEquals(2, questions.stream().filter(question -> "light off".equals(question.getAnswer())).count());
+		assertEquals(2, questions.stream().filter(question -> "red".equals(question.getAnswer())).count());
+		assertEquals(2, questions.stream().filter(question -> "green".equals(question.getAnswer())).count());
+		assertEquals(2, questions.stream().filter(question -> "blue".equals(question.getAnswer())).count());
+		assertTrue(questions.stream().allMatch(question -> question.getChoiceOptions().size() == 5));
+		assertTrue(questions.stream().allMatch(question -> question.getIotActionCode() != null));
 	}
 
 	@Test

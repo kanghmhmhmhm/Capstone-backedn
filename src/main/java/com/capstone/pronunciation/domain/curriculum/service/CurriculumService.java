@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +37,7 @@ public class CurriculumService {
 	private final SessionResultRepository sessionResultRepository;
 	private final UserProgressRepository userProgressRepository;
 	private final UserRepository userRepository;
+	private final boolean levelLockEnabled;
 
 	public CurriculumService(
 			CurriculumStageRepository stageRepository,
@@ -43,13 +45,15 @@ public class CurriculumService {
 			LearningSessionRepository learningSessionRepository,
 			SessionResultRepository sessionResultRepository,
 			UserProgressRepository userProgressRepository,
-			UserRepository userRepository) {
+			UserRepository userRepository,
+			@Value("${app.curriculum.level-lock-enabled:false}") boolean levelLockEnabled) {
 		this.stageRepository = stageRepository;
 		this.questionRepository = questionRepository;
 		this.learningSessionRepository = learningSessionRepository;
 		this.sessionResultRepository = sessionResultRepository;
 		this.userProgressRepository = userProgressRepository;
 		this.userRepository = userRepository;
+		this.levelLockEnabled = levelLockEnabled;
 	}
 
 	@Transactional(readOnly = true)
@@ -210,6 +214,13 @@ public class CurriculumService {
 
 	private Map<Long, Boolean> buildUnlockedStageMap(Long userId, List<CurriculumStage> stages) {
 		Map<Long, Boolean> unlockedByStageId = new HashMap<>();
+		if (!levelLockEnabled) {
+			for (CurriculumStage stage : stages) {
+				unlockedByStageId.put(stage.getId(), true);
+			}
+			return unlockedByStageId;
+		}
+
 		boolean previousStageCompleted = true;
 		boolean firstStage = true;
 

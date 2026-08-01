@@ -30,6 +30,9 @@ app:
     feedback-wav-path: ${FASTAPI_FEEDBACK_WAV_PATH:/feedback-wav}
   word-audio:
     base-url: ${WORD_AUDIO_BASE_URL:https://aws-s3-capstone-kang.s3.ap-northeast-2.amazonaws.com/audio/words}
+  curriculum:
+    # false면 Lv1~Lv15를 모두 개방하고, true면 이전 레벨 완료 후 다음 레벨을 개방합니다.
+    level-lock-enabled: ${CURRICULUM_LEVEL_LOCK_ENABLED:false}
   iot:
     enabled: ${IOT_ENABLED:false}
     mqtt-broker-uri: ${IOT_MQTT_BROKER_URI:tcp://broker.hivemq.com:1883}

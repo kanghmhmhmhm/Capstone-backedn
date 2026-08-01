@@ -83,15 +83,9 @@ public class CurriculumController {
 		if (level == null) {
 			throw new IllegalArgumentException("level은 필수입니다.");
 		}
-		return switch (level) {
-			case 1 -> "BASIC_PRONUNCIATION";
-			case 2 -> "WORD";
-			default -> {
-				if (level < 3 || level > 15) {
-					throw new IllegalArgumentException("지원하지 않는 level입니다: " + level);
-				}
-				yield "Sentence Lv" + level;
-			}
-		};
+		if (level < 1 || level > 15) {
+			throw new IllegalArgumentException("지원하지 않는 level입니다: " + level);
+		}
+		return "Sentence Lv" + level;
 	}
 }

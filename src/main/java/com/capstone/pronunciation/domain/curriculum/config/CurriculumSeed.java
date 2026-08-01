@@ -32,6 +32,7 @@ public class CurriculumSeed {
 			"three", "thank", "mother", "she", "sheep", "shoes", "zoo", "water", "window", "apple",
 			"cat", "bed", "milk", "sing", "choice", "girl", "world", "map", "spring"
 	);
+	private static final List<String> LEVEL_ONE_CHOICES = List.of("light on", "light off", "red", "green", "blue");
 
 	@Value("${app.word-audio.base-url}")
 	private String wordAudioBaseUrl;
@@ -121,18 +122,22 @@ public class CurriculumSeed {
 		question.setChoiceOptions(choicesFor(seed.answer()));
 		question.setAnimationData(seed.animationData());
 		question.setWordAudioUrl(wordAudioUrlFor(seed.answer()));
-		question.setIotActionCode(iotActionCodeFor(seed.sentence()));
+		question.setIotActionCode(iotActionCodeFor(seed.answer()));
 		questionRepository.save(question);
 	}
 
-	private String iotActionCodeFor(String sentence) {
-		if ("Please turn off the ______.".equals(sentence)) {
-			return "LIGHT_OFF";
+	private String iotActionCodeFor(String answer) {
+		if (answer == null) {
+			return null;
 		}
-		if ("The room is too dark without the ______.".equals(sentence)) {
-			return "LIGHT_ON";
-		}
-		return null;
+		return switch (answer.toLowerCase()) {
+			case "light on" -> "LIGHT_ON";
+			case "light off" -> "LIGHT_OFF";
+			case "red" -> "LIGHT_RED";
+			case "green" -> "LIGHT_GREEN";
+			case "blue" -> "LIGHT_BLUE";
+			default -> null;
+		};
 	}
 
 	private void deleteLegacySentenceQuestions(
@@ -186,6 +191,9 @@ public class CurriculumSeed {
 	}
 
 	private List<String> choicesFor(String answer) {
+		if (answer != null && LEVEL_ONE_CHOICES.contains(answer.toLowerCase())) {
+			return LEVEL_ONE_CHOICES;
+		}
 		LinkedHashSet<String> choices = new LinkedHashSet<>();
 		choices.add(answer);
 		int start = Math.max(0, WORD_CHOICES.indexOf(answer));
@@ -210,12 +218,15 @@ public class CurriculumSeed {
 	}
 
 	private List<QuestionSeed> questionSeeds(List<CurriculumStage> stages) {
-		List<QuestionSeed> seeds = new ArrayList<>();
+		List<QuestionSeed> seeds = new ArrayList<>(levelOneQuestionSeeds(stages.get(0)));
 		List<WordSeed> words = wordSeeds();
 		for (int wordIndex = 0; wordIndex < words.size(); wordIndex++) {
 			WordSeed word = words.get(wordIndex);
 			for (int sentenceIndex = 0; sentenceIndex < word.sentences().size(); sentenceIndex++) {
 				CurriculumStage stage = stageForQuestion(stages, word, wordIndex, sentenceIndex);
+				if (stage.getOrder() == 1) {
+					continue;
+				}
 				seeds.add(new QuestionSeed(
 						stage,
 						word.sentences().get(sentenceIndex),
@@ -227,6 +238,37 @@ public class CurriculumSeed {
 			}
 		}
 		return seeds;
+	}
+
+	private List<QuestionSeed> levelOneQuestionSeeds(CurriculumStage stage) {
+		return List.of(
+				levelOneQuestion(stage, "The room is dark. Say ______.", "light on", "/laɪt ɑn/", List.of("l", "aa", "ih", "t", "aa", "n")),
+				levelOneQuestion(stage, "It is bedtime. Say ______.", "light off", "/laɪt ɔːf/", List.of("l", "aa", "ih", "t", "ao", "f")),
+				levelOneQuestion(stage, "Make the light ______ like an apple.", "red", "/red/", List.of("r", "eh", "d")),
+				levelOneQuestion(stage, "Make the light ______ like the sky.", "blue", "/bluː/", List.of("b", "l", "uw")),
+				levelOneQuestion(stage, "Make the light ______ like grass.", "green", "/ɡriːn/", List.of("g", "r", "iy", "n")),
+				levelOneQuestion(stage, "Use the command ______ to brighten the room.", "light on", "/laɪt ɑn/", List.of("l", "aa", "ih", "t", "aa", "n")),
+				levelOneQuestion(stage, "Use the command ______ before going to sleep.", "light off", "/laɪt ɔːf/", List.of("l", "aa", "ih", "t", "ao", "f")),
+				levelOneQuestion(stage, "Change the lamp to ______.", "red", "/red/", List.of("r", "eh", "d")),
+				levelOneQuestion(stage, "Set the lamp color to ______.", "blue", "/bluː/", List.of("b", "l", "uw")),
+				levelOneQuestion(stage, "Change the LED color to ______.", "green", "/ɡriːn/", List.of("g", "r", "iy", "n"))
+		);
+	}
+
+	private QuestionSeed levelOneQuestion(
+			CurriculumStage stage,
+			String sentence,
+			String answer,
+			String phoneticSymbol,
+			List<String> phonemes) {
+		return new QuestionSeed(
+				stage,
+				sentence,
+				answer,
+				phoneticSymbol,
+				animationDataFor(phonemes),
+				stage.getDifficulty()
+		);
 	}
 
 	private CurriculumStage stageForQuestion(
