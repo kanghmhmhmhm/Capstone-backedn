@@ -35,3 +35,9 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# OS and editor temporary files
+.DS_Store
+*.swp
+*.swo
+*~
